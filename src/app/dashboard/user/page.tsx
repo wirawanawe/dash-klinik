@@ -69,6 +69,10 @@ export default function UserPage() {
                 ? {
                     role: formState.role,
                     ...(formState.password ? { password: formState.password } : {}),
+                    ...(formState.sql_server ? { sql_server: formState.sql_server } : {}),
+                    ...(formState.sql_database ? { sql_database: formState.sql_database } : {}),
+                    ...(formState.sql_user ? { sql_user: formState.sql_user } : {}),
+                    ...(formState.sql_password ? { sql_password: formState.sql_password } : {}),
                 }
                 : formState;
 
@@ -138,12 +142,15 @@ export default function UserPage() {
                     <button
                         onClick={() => {
                             setEditingId(item.id);
-                            setFormState((prev) => ({
-                                ...prev,
+                            setFormState({
                                 username: item.username,
                                 password: '',
                                 role: item.role,
-                            }));
+                                sql_server: item.sql_server || '',
+                                sql_database: item.sql_database || '',
+                                sql_user: item.sql_user || '',
+                                sql_password: '', // Jangan return/tampilkan password sql secara langsung
+                            });
                             setFormOpen(true);
                         }}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300"
@@ -248,36 +255,44 @@ export default function UserPage() {
                             {formState.role === 'admin' && (
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
-                                        <label className="text-xs font-medium text-gray-600 dark:text-gray-300">SQL Server</label>
+                                        <label className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                                            {editingId !== null ? 'SQL Server (opsional)' : 'SQL Server'}
+                                        </label>
                                         <Input
                                             value={formState.sql_server}
                                             onChange={(e) => setFormState({ ...formState, sql_server: e.target.value })}
-                                            required={formState.role === 'admin'}
+                                            required={editingId === null}
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-xs font-medium text-gray-600 dark:text-gray-300">SQL Database</label>
+                                        <label className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                                            {editingId !== null ? 'SQL Database (opsional)' : 'SQL Database'}
+                                        </label>
                                         <Input
                                             value={formState.sql_database}
                                             onChange={(e) => setFormState({ ...formState, sql_database: e.target.value })}
-                                            required={formState.role === 'admin'}
+                                            required={editingId === null}
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-xs font-medium text-gray-600 dark:text-gray-300">SQL User</label>
+                                        <label className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                                            {editingId !== null ? 'SQL User (opsional)' : 'SQL User'}
+                                        </label>
                                         <Input
                                             value={formState.sql_user}
                                             onChange={(e) => setFormState({ ...formState, sql_user: e.target.value })}
-                                            required={formState.role === 'admin'}
+                                            required={editingId === null}
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-xs font-medium text-gray-600 dark:text-gray-300">SQL Password</label>
+                                        <label className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                                            {editingId !== null ? 'SQL Password (opsional)' : 'SQL Password'}
+                                        </label>
                                         <Input
                                             type="password"
                                             value={formState.sql_password}
                                             onChange={(e) => setFormState({ ...formState, sql_password: e.target.value })}
-                                            required={formState.role === 'admin'}
+                                            required={editingId === null}
                                         />
                                     </div>
                                 </div>
