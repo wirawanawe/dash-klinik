@@ -9,6 +9,8 @@ import { getApiHeaders } from '@/lib/api';
 export default function TablesPage() {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [sortColumn, setSortColumn] = useState<string | undefined>('TABLE_NAME');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
     const fetchData = async () => {
         setLoading(true);
@@ -40,6 +42,7 @@ export default function TablesPage() {
         {
             header: 'Table Name',
             accessorKey: 'TABLE_NAME',
+            sortable: true,
             className: 'font-medium',
             cell: (item: any) => (
                 <div className="flex items-center gap-2">
@@ -62,6 +65,19 @@ export default function TablesPage() {
                 data={data}
                 columns={columns}
                 isLoading={loading}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSortChange={(col, dir) => {
+                    setSortColumn(col);
+                    setSortDirection(dir);
+                    const sortedData = [...data].sort((a, b) => {
+                        const aVal = a[col] || '';
+                        const bVal = b[col] || '';
+                        if (dir === 'asc') return aVal.localeCompare(bVal);
+                        return bVal.localeCompare(aVal);
+                    });
+                    setData(sortedData);
+                }}
                 onPageChange={() => { }} // No pagination for this list in controller
             />
         </div>

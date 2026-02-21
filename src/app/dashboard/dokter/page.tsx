@@ -18,6 +18,8 @@ export default function DokterPage() {
         totalRows: 0,
         totalPages: 0,
     });
+    const [sortColumn, setSortColumn] = useState<string | undefined>();
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
     // Create a simple debounce mechanism if the hook doesn't exist
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -29,7 +31,7 @@ export default function DokterPage() {
         return () => clearTimeout(timer);
     }, [search]);
 
-    const fetchData = useCallback(async (page = 1, searchQuery = '', limit = 10) => {
+    const fetchData = useCallback(async (page = 1, searchQuery = '', limit = 10, sortBy?: string, sortOrder?: string) => {
         setLoading(true);
         try {
             const queryParams = new URLSearchParams({
@@ -40,6 +42,8 @@ export default function DokterPage() {
             if (searchQuery) {
                 queryParams.append('nama', searchQuery);
             }
+            if (sortBy) queryParams.append('sortBy', sortBy);
+            if (sortOrder) queryParams.append('sortOrder', sortOrder);
 
             const selectedUserId = getSelectedDashboardUserId();
             const res = await fetch(`/api/proxy/dokter?${queryParams.toString()}`, {
@@ -73,11 +77,11 @@ export default function DokterPage() {
     }, []);
 
     useEffect(() => {
-        fetchData(1, debouncedSearch);
-    }, [debouncedSearch, fetchData]);
+        fetchData(1, debouncedSearch, pagination.limit, sortColumn, sortDirection);
+    }, [debouncedSearch, fetchData, pagination.limit, sortColumn, sortDirection]);
 
     const handlePageChange = (newPage: number) => {
-        fetchData(newPage, debouncedSearch);
+        fetchData(newPage, debouncedSearch, pagination.limit, sortColumn, sortDirection);
     };
 
     const columns = [
@@ -112,8 +116,15 @@ export default function DokterPage() {
                 columns={columns}
                 isLoading={loading}
                 pagination={pagination}
-                onPageChange={(newPage) => fetchData(newPage, debouncedSearch, pagination.limit)}
-                onLimitChange={(newLimit) => fetchData(1, debouncedSearch, newLimit)}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSortChange={(col, dir) => {
+                    setSortColumn(col);
+                    setSortDirection(dir);
+                    fetchData(1, debouncedSearch, pagination.limit, col, dir);
+                }}
+                onPageChange={(newPage) => fetchData(newPage, debouncedSearch, pagination.limit, sortColumn, sortDirection)}
+                onLimitChange={(newLimit) => fetchData(1, debouncedSearch, newLimit, sortColumn, sortDirection)}
             />
         </div>
     );

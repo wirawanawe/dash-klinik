@@ -10,6 +10,8 @@ export default function UserPage() {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [sortColumn, setSortColumn] = useState<string | undefined>();
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
     const [formOpen, setFormOpen] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -23,11 +25,15 @@ export default function UserPage() {
         sql_password: '',
     });
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (sortBy?: string, sortOrder?: string) => {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch('/api/proxy/dashboard-users', {
+            const queryParams = new URLSearchParams();
+            if (sortBy) queryParams.append('sortBy', sortBy);
+            if (sortOrder) queryParams.append('sortOrder', sortOrder);
+
+            const res = await fetch(`/api/proxy/dashboard-users?${queryParams.toString()}`, {
                 headers: getApiHeaders(),
             });
             if (res.status === 403) {
@@ -51,8 +57,8 @@ export default function UserPage() {
     }, []);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        fetchData(sortColumn, sortDirection);
+    }, [fetchData, sortColumn, sortDirection]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -96,7 +102,7 @@ export default function UserPage() {
                 sql_user: '',
                 sql_password: '',
             });
-            fetchData();
+            fetchData(sortColumn, sortDirection);
         } catch (err: any) {
             setError(
                 err.message ||
@@ -122,7 +128,7 @@ export default function UserPage() {
                 const json = await res.json().catch(() => ({}));
                 throw new Error(json.message || 'Gagal menghapus user');
             }
-            fetchData();
+            fetchData(sortColumn, sortDirection);
         } catch (err: any) {
             setError(err.message || 'Terjadi kesalahan saat menghapus user.');
         } finally {
@@ -189,6 +195,13 @@ export default function UserPage() {
                 data={data}
                 columns={columns}
                 isLoading={loading}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSortChange={(col, dir) => {
+                    setSortColumn(col);
+                    setSortDirection(dir);
+                    fetchData(col, dir);
+                }}
                 action={
                     <button
                         onClick={() => {

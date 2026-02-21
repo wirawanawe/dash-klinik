@@ -21,6 +21,8 @@ export default function KunjunganPage() {
         totalRows: 0,
         totalPages: 0,
     });
+    const [sortColumn, setSortColumn] = useState<string | undefined>();
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [detailOpen, setDetailOpen] = useState(false);
@@ -37,7 +39,7 @@ export default function KunjunganPage() {
         return () => clearTimeout(timer);
     }, [search]);
 
-    const fetchData = useCallback(async (page = 1, searchQuery = '', start = '', end = '', limit = 10) => {
+    const fetchData = useCallback(async (page = 1, searchQuery = '', start = '', end = '', limit = 10, sortBy?: string, sortOrder?: string) => {
         setLoading(true);
         try {
             const queryParams = new URLSearchParams({
@@ -56,6 +58,8 @@ export default function KunjunganPage() {
 
             if (start) queryParams.append('startDate', start);
             if (end) queryParams.append('endDate', end);
+            if (sortBy) queryParams.append('sortBy', sortBy);
+            if (sortOrder) queryParams.append('sortOrder', sortOrder);
 
             const selectedUserId = getSelectedDashboardUserId();
 
@@ -116,8 +120,8 @@ export default function KunjunganPage() {
     }, []);
 
     useEffect(() => {
-        fetchData(1, debouncedSearch, startDate, endDate, pagination.limit);
-    }, [debouncedSearch, startDate, endDate, fetchData]);
+        fetchData(1, debouncedSearch, startDate, endDate, pagination.limit, sortColumn, sortDirection);
+    }, [debouncedSearch, startDate, endDate, fetchData, pagination.limit, sortColumn, sortDirection]);
     // Note: pagination.limit in dependency array might trigger double fetch on mount if not careful, 
     // but needed if limit changes from other source. 
     // Actually limit change is handled by onLimitChange which calls fetchData explicitly. 
@@ -197,8 +201,15 @@ export default function KunjunganPage() {
                 columns={columns}
                 isLoading={loading}
                 pagination={pagination}
-                onPageChange={(newPage) => fetchData(newPage, debouncedSearch, startDate, endDate, pagination.limit)}
-                onLimitChange={(newLimit) => fetchData(1, debouncedSearch, startDate, endDate, newLimit)}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSortChange={(col, dir) => {
+                    setSortColumn(col);
+                    setSortDirection(dir);
+                    fetchData(1, debouncedSearch, startDate, endDate, pagination.limit, col, dir);
+                }}
+                onPageChange={(newPage) => fetchData(newPage, debouncedSearch, startDate, endDate, pagination.limit, sortColumn, sortDirection)}
+                onLimitChange={(newLimit) => fetchData(1, debouncedSearch, startDate, endDate, newLimit, sortColumn, sortDirection)}
             />
 
             {detailOpen && (

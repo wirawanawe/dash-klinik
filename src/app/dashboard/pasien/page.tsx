@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/SearchInput';
 import { Search, User, Calendar, X, Loader2, FileText, RefreshCw, AlertCircle, Users } from 'lucide-react';
 import { useCallback, useState, useEffect } from 'react';
 import { DataTable } from '@/components/ui/data-table';
-import { getSelectedDashboardUserId } from '@/lib/tenant';
+import { getSelectedDashboardUserId, subscribeToTenantChange } from '@/lib/tenant';
 import { getApiHeaders } from '@/lib/api';
 
 export default function PasienPage() {
@@ -17,6 +17,8 @@ export default function PasienPage() {
         totalRows: 0,
         totalPages: 0,
     });
+    const [sortColumn, setSortColumn] = useState<string | undefined>();
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [genderFilter, setGenderFilter] = useState<string>('');
@@ -39,7 +41,7 @@ export default function PasienPage() {
         return () => clearTimeout(timer);
     }, [search]);
 
-    const fetchData = useCallback(async (page = 1, searchQuery = '', limit = 10) => {
+    const fetchData = useCallback(async (page = 1, searchQuery = '', limit = 10, sortBy?: string, sortOrder?: string) => {
         setLoading(true);
         setListError(null);
         try {
@@ -59,6 +61,8 @@ export default function PasienPage() {
             if (genderFilter) {
                 queryParams.append('jenisKelamin', genderFilter);
             }
+            if (sortBy) queryParams.append('sortBy', sortBy);
+            if (sortOrder) queryParams.append('sortOrder', sortOrder);
 
             const selectedUserId = getSelectedDashboardUserId();
             const res = await fetch(`/api/proxy/pasien?${queryParams.toString()}`, {
@@ -88,8 +92,8 @@ export default function PasienPage() {
     }, [genderFilter]);
 
     useEffect(() => {
-        fetchData(1, debouncedSearch, pagination.limit);
-    }, [debouncedSearch, fetchData]);
+        fetchData(1, debouncedSearch, pagination.limit, sortColumn, sortDirection);
+    }, [debouncedSearch, fetchData, pagination.limit, sortColumn, sortDirection]);
 
     const fetchKunjungan = useCallback(async (page = 1, limit = 10) => {
         if (!selectedPatient?.No_MR) return;
@@ -171,6 +175,17 @@ export default function PasienPage() {
         }
     }, [detailOpen, detailTab, selectedPatient?.Nama_Panggilan, fetchKeluarga]);
 
+    useEffect(() => {
+        const unsubscribe = subscribeToTenantChange(() => {
+            fetchData(1, debouncedSearch, pagination.limit, sortColumn, sortDirection);
+            if (detailOpen && selectedPatient) {
+                if (detailTab === 'kunjungan') fetchKunjungan(1, 10);
+                if (detailTab === 'keluarga') fetchKeluarga();
+            }
+        });
+        return unsubscribe;
+    }, [fetchData, debouncedSearch, pagination.limit, sortColumn, sortDirection, detailOpen, selectedPatient, detailTab, fetchKunjungan, fetchKeluarga]);
+
     const columns = [
         { header: 'No MR', accessorKey: 'No_MR', className: 'font-medium' },
         { header: 'Nama Pasien', accessorKey: 'Nama_Pasien' },
@@ -220,10 +235,17 @@ export default function PasienPage() {
                 <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200">
                     <div className="flex items-center gap-3">
                         <AlertCircle className="h-5 w-5 shrink-0" />
-                        <p className="text-sm font-medium">{listError}</p>
+                        <div>
+                            <p className="text-sm font-medium">{listError}</p>
+                            {!listError.includes('memilih admin') && (
+                                <p className="text-xs mt-1 text-red-600 dark:text-red-300 opacity-80">
+                                    📡 Server sedang tidak aktif atau coba refresh kembali untuk memastikan.
+                                </p>
+                            )}
+                        </div>
                     </div>
                     <button
-                        onClick={() => fetchData(1, debouncedSearch, pagination.limit)}
+                        onClick={() => fetchData(1, debouncedSearch, pagination.limit, sortColumn, sortDirection)}
                         disabled={loading}
                         className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-100 dark:bg-red-900/40 hover:bg-red-200 dark:hover:bg-red-900/60 text-red-800 dark:text-red-200 text-sm font-medium transition-colors disabled:opacity-50"
                     >
@@ -258,7 +280,7 @@ export default function PasienPage() {
                     </select>
                 </div>
                 <button
-                    onClick={() => fetchData(1, debouncedSearch, pagination.limit)}
+                    onClick={() => fetchData(1, debouncedSearch, pagination.limit, sortColumn, sortDirection)}
                     disabled={loading}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 text-gray-700 dark:text-gray-300 text-sm font-medium transition-colors disabled:opacity-50"
                     title="Refresh / rekoneksi ke server"
@@ -275,8 +297,15 @@ export default function PasienPage() {
                 columns={columns}
                 isLoading={loading}
                 pagination={pagination}
-                onPageChange={(newPage) => fetchData(newPage, debouncedSearch, pagination.limit)}
-                onLimitChange={(newLimit) => fetchData(1, debouncedSearch, newLimit)}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSortChange={(col, dir) => {
+                    setSortColumn(col);
+                    setSortDirection(dir);
+                    fetchData(1, debouncedSearch, pagination.limit, col, dir);
+                }}
+                onPageChange={(newPage) => fetchData(newPage, debouncedSearch, pagination.limit, sortColumn, sortDirection)}
+                onLimitChange={(newLimit) => fetchData(1, debouncedSearch, newLimit, sortColumn, sortDirection)}
             />
             {detailOpen && selectedPatient && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -309,22 +338,20 @@ export default function PasienPage() {
                         <div className="flex border-b border-gray-200 dark:border-neutral-800 bg-gray-50/50 dark:bg-neutral-800/50">
                             <button
                                 onClick={() => setDetailTab('data')}
-                                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${
-                                    detailTab === 'data'
-                                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-white dark:bg-neutral-900'
-                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                                }`}
+                                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${detailTab === 'data'
+                                    ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-white dark:bg-neutral-900'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                                    }`}
                             >
                                 <User className="h-4 w-4" />
                                 Data Pasien
                             </button>
                             <button
                                 onClick={() => setDetailTab('kunjungan')}
-                                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${
-                                    detailTab === 'kunjungan'
-                                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-white dark:bg-neutral-900'
-                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                                }`}
+                                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${detailTab === 'kunjungan'
+                                    ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-white dark:bg-neutral-900'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                                    }`}
                             >
                                 <Calendar className="h-4 w-4" />
                                 Riwayat Kunjungan
@@ -336,11 +363,10 @@ export default function PasienPage() {
                             </button>
                             <button
                                 onClick={() => setDetailTab('keluarga')}
-                                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${
-                                    detailTab === 'keluarga'
-                                        ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-white dark:bg-neutral-900'
-                                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                                }`}
+                                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors ${detailTab === 'keluarga'
+                                    ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400 bg-white dark:bg-neutral-900'
+                                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                                    }`}
                             >
                                 <Users className="h-4 w-4" />
                                 Anggota Keluarga

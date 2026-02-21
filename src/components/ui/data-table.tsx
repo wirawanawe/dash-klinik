@@ -4,7 +4,10 @@ import {
     ChevronLeft,
     ChevronRight,
     Loader2,
-    MoreHorizontal
+    MoreHorizontal,
+    ArrowUpDown,
+    ArrowUp,
+    ArrowDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils'; // Assuming you have a utility for class merging
 
@@ -13,6 +16,7 @@ interface Column<T> {
     accessorKey?: keyof T;
     cell?: (item: T) => React.ReactNode;
     className?: string;
+    sortable?: boolean;
 }
 
 interface DataTableProps<T> {
@@ -24,10 +28,12 @@ interface DataTableProps<T> {
         limit: number;
         totalRows: number;
         totalPages: number;
-
     };
     onPageChange?: (page: number) => void;
     onLimitChange?: (limit: number) => void;
+    onSortChange?: (column: string, direction: 'asc' | 'desc') => void;
+    sortColumn?: string;
+    sortDirection?: 'asc' | 'desc';
     title?: string;
     description?: string;
     action?: React.ReactNode;
@@ -40,10 +46,24 @@ export function DataTable<T extends { [key: string]: any }>({
     pagination,
     onPageChange,
     onLimitChange,
+    onSortChange,
+    sortColumn,
+    sortDirection,
     title,
     description,
     action
 }: DataTableProps<T>) {
+    const handleSort = (columnKey: string) => {
+        if (!onSortChange) return;
+
+        let newDirection: 'asc' | 'desc' = 'asc';
+        if (sortColumn === columnKey && sortDirection === 'asc') {
+            newDirection = 'desc';
+        }
+
+        onSortChange(columnKey, newDirection);
+    };
+
     return (
         <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm border border-gray-200 dark:border-neutral-800 flex flex-col h-full">
             {(title || action) && (
@@ -60,11 +80,33 @@ export function DataTable<T extends { [key: string]: any }>({
                 <table className="w-full text-left text-sm">
                     <thead className="bg-gray-50 dark:bg-neutral-800 text-gray-500 dark:text-gray-400 font-medium">
                         <tr>
-                            {columns.map((col, idx) => (
-                                <th key={idx} className={cn("px-6 py-4 whitespace-nowrap", col.className)}>
-                                    {col.header}
-                                </th>
-                            ))}
+                            {columns.map((col, idx) => {
+                                const isSortable = col.sortable !== false && col.accessorKey;
+                                return (
+                                    <th
+                                        key={idx}
+                                        className={cn(
+                                            "px-6 py-4 whitespace-nowrap",
+                                            isSortable && "cursor-pointer hover:bg-gray-100 dark:hover:bg-neutral-700/50 transition-colors",
+                                            col.className
+                                        )}
+                                        onClick={() => isSortable && col.accessorKey && handleSort(col.accessorKey as string)}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {col.header}
+                                            {isSortable && (
+                                                <span className="text-gray-400">
+                                                    {sortColumn === col.accessorKey ? (
+                                                        sortDirection === 'asc' ? <ArrowUp className="h-4 w-4 text-blue-500" /> : <ArrowDown className="h-4 w-4 text-blue-500" />
+                                                    ) : (
+                                                        <ArrowUpDown className="h-4 w-4 opacity-50" />
+                                                    )}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </th>
+                                )
+                            })}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-neutral-800">
@@ -93,10 +135,11 @@ export function DataTable<T extends { [key: string]: any }>({
                                         const raw = col.cell ? col.cell(item) : item[col.accessorKey as string];
                                         const isEmpty = raw === null || raw === undefined || (typeof raw === 'string' && raw.trim() === '');
                                         return (
-                                        <td key={colIdx} className={cn("px-6 py-4", col.className)}>
-                                            {isEmpty ? '-' : raw}
-                                        </td>
-                                    );})}
+                                            <td key={colIdx} className={cn("px-6 py-4", col.className)}>
+                                                {isEmpty ? '-' : raw}
+                                            </td>
+                                        );
+                                    })}
                                 </tr>
                             ))
                         )}

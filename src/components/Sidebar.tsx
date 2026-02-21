@@ -11,7 +11,8 @@ import {
     Pill,
     Building2,
     UserCog,
-    Clock
+    Clock,
+    Notebook
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +22,7 @@ const menuItems = [
     { icon: Activity, label: 'Kunjungan', href: '/dashboard/kunjungan' },
     { icon: CreditCard, label: 'Transaksi', href: '/dashboard/transaksi' },
     { icon: Pill, label: 'Farmasi', href: '/dashboard/farmasi' },
+    { icon: Notebook, label: 'Resep', href: '/dashboard/resep' },
     { icon: Users, label: 'Dokter', href: '/dashboard/dokter' },
     { icon: UserCog, label: 'User', href: '/dashboard/user' },
 ];

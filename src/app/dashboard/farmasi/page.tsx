@@ -18,6 +18,8 @@ export default function FarmasiPage() {
         totalRows: 0,
         totalPages: 0,
     });
+    const [sortColumn, setSortColumn] = useState<string | undefined>();
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [pabrikFilter, setPabrikFilter] = useState('');
@@ -52,7 +54,9 @@ export default function FarmasiPage() {
         activeStatus = '1',
         limit = 10,
         pabrik = '',
-        golongan = ''
+        golongan = '',
+        sortBy?: string,
+        sortOrder?: string
     ) => {
         setLoading(true);
         try {
@@ -65,6 +69,8 @@ export default function FarmasiPage() {
             if (activeStatus !== 'all') queryParams.append('aktif', activeStatus);
             if (pabrik) queryParams.append('pabrik', pabrik);
             if (golongan) queryParams.append('golongan', golongan);
+            if (sortBy) queryParams.append('sortBy', sortBy);
+            if (sortOrder) queryParams.append('sortOrder', sortOrder);
 
             const selectedUserId = getSelectedDashboardUserId();
             const res = await fetch(`/api/proxy/farmasi/obat?${queryParams.toString()}`, {
@@ -86,8 +92,8 @@ export default function FarmasiPage() {
     }, []);
 
     useEffect(() => {
-        fetchData(1, debouncedSearch, statusFilter, pagination.limit, debouncedPabrik, debouncedGolongan);
-    }, [debouncedSearch, statusFilter, debouncedPabrik, debouncedGolongan, fetchData, pagination.limit]);
+        fetchData(1, debouncedSearch, statusFilter, pagination.limit, debouncedPabrik, debouncedGolongan, sortColumn, sortDirection);
+    }, [debouncedSearch, statusFilter, debouncedPabrik, debouncedGolongan, sortColumn, sortDirection, fetchData, pagination.limit]);
 
     const columns = [
         { header: 'KFA Code', accessorKey: 'KFA_Code', className: 'font-medium' },
@@ -96,6 +102,7 @@ export default function FarmasiPage() {
         { header: 'Pabrik', accessorKey: 'Pabrik', cell: (item: any) => item.Pabrik ?? '-' },
         { header: 'Golongan', accessorKey: 'Golongan', cell: (item: any) => item.Golongan ?? '-' },
         { header: 'Satuan', accessorKey: 'SmallUnit' },
+        { header: 'Stok', accessorKey: 'Stok', cell: (item: any) => item.Stok ?? '-' },
         {
             header: 'HNA',
             accessorKey: 'HNA',
@@ -161,8 +168,15 @@ export default function FarmasiPage() {
                 columns={columns}
                 isLoading={loading}
                 pagination={pagination}
-                onPageChange={(newPage) => fetchData(newPage, debouncedSearch, statusFilter, pagination.limit, debouncedPabrik, debouncedGolongan)}
-                onLimitChange={(newLimit) => fetchData(1, debouncedSearch, statusFilter, newLimit, debouncedPabrik, debouncedGolongan)}
+                sortColumn={sortColumn}
+                sortDirection={sortDirection}
+                onSortChange={(col, dir) => {
+                    setSortColumn(col);
+                    setSortDirection(dir);
+                    fetchData(1, debouncedSearch, statusFilter, pagination.limit, debouncedPabrik, debouncedGolongan, col, dir);
+                }}
+                onPageChange={(newPage) => fetchData(newPage, debouncedSearch, statusFilter, pagination.limit, debouncedPabrik, debouncedGolongan, sortColumn, sortDirection)}
+                onLimitChange={(newLimit) => fetchData(1, debouncedSearch, statusFilter, newLimit, debouncedPabrik, debouncedGolongan, sortColumn, sortDirection)}
             />
         </div>
     );

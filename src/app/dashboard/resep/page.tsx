@@ -1,0 +1,404 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { Loader2, CalendarDays, TrendingUp, Eye, X, Notebook, AlertCircle } from 'lucide-react';
+import { getApiHeaders } from '@/lib/api';
+import { getSelectedDashboardUserId, subscribeToTenantChange } from '@/lib/tenant';
+import { DataTable } from '@/components/ui/data-table';
+
+function DashboardCard({ title, value, subtext, icon: Icon }: { title: string; value: string | number; subtext?: string; icon?: any }) {
+    return (
+        <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</h3>
+                {Icon && <Icon className="h-4 w-4 text-gray-400" />}
+            </div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
+            {subtext && <p className="text-xs text-gray-400 mt-2">{subtext}</p>}
+        </div>
+    );
+}
+
+const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+type TopMedicineItem = { ItemDesc: string; TotalQty: number; TotalNominal: number };
+
+export default function ResepDashboardPage() {
+    const now = new Date();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+
+    // Summary & Top Medicines States
+    const [summary, setSummary] = useState({
+        hariIni: { count: 0, nominal: 0 },
+        bulanIni: { count: 0, nominal: 0 },
+        tahunIni: { count: 0, nominal: 0 }
+    });
+
+    const [topMedicines, setTopMedicines] = useState({
+        hariIni: [] as TopMedicineItem[],
+        bulanIni: [] as TopMedicineItem[],
+        tahunIni: [] as TopMedicineItem[]
+    });
+
+    // FAR_RESEP DataTable States
+    const [resepData, setResepData] = useState<any[]>([]);
+    const [resepLoading, setResepLoading] = useState(true);
+    const [resepPagination, setResepPagination] = useState({
+        page: 1, limit: 10, totalRows: 0, totalPages: 0
+    });
+    const [sortColumn, setSortColumn] = useState<string | undefined>();
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+    // Details Modal States
+    const [modalOpen, setModalOpen] = useState(false);
+    const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
+    const [detailData, setDetailData] = useState<any[]>([]);
+    const [detailLoading, setDetailLoading] = useState(false);
+
+    // Fetch Summary & Top Medicines
+    const fetchDashboardData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const selectedUserId = getSelectedDashboardUserId();
+            const headers = getApiHeaders(selectedUserId ? { 'x-impersonate-user-id': selectedUserId } : undefined);
+
+            const [summaryRes, topRes] = await Promise.all([
+                fetch(`/api/proxy/resep/summary?month=${selectedMonth}&year=${selectedYear}`, { headers }),
+                fetch(`/api/proxy/resep/top-medicines?month=${selectedMonth}&year=${selectedYear}`, { headers })
+            ]);
+
+            const summaryJson = await summaryRes.json();
+            const topJson = await topRes.json();
+
+            if (!summaryRes.ok) throw new Error(summaryJson.message || 'Gagal memuat summary resep');
+            if (!topRes.ok) throw new Error(topJson.message || 'Gagal memuat top obat resep');
+
+            setSummary(summaryJson.summary ?? {
+                hariIni: { count: 0, nominal: 0 },
+                bulanIni: { count: 0, nominal: 0 },
+                tahunIni: { count: 0, nominal: 0 }
+            });
+
+            setTopMedicines(topJson.data ?? {
+                hariIni: [],
+                bulanIni: [],
+                tahunIni: []
+            });
+
+        } catch (e) {
+            console.error(e);
+            setError(e instanceof Error ? e.message : 'Gagal memuat data resep');
+        } finally {
+            setLoading(false);
+        }
+    }, [selectedMonth, selectedYear]);
+
+    // Fetch FAR_RESEP List
+    const fetchResepList = useCallback(async (
+        page = 1,
+        limit = 10,
+        sortBy?: string,
+        sortOrder?: string
+    ) => {
+        setResepLoading(true);
+        try {
+            const queryParams = new URLSearchParams({
+                page: page.toString(),
+                limit: limit.toString(),
+            });
+
+            if (sortBy) queryParams.append('sortBy', sortBy);
+            if (sortOrder) queryParams.append('sortOrder', sortOrder);
+
+            const selectedUserId = getSelectedDashboardUserId();
+            const res = await fetch(`/api/proxy/farmasi/far-resep?${queryParams.toString()}`, {
+                headers: getApiHeaders(selectedUserId ? { 'x-impersonate-user-id': selectedUserId } : undefined),
+            });
+            const json = await res.json();
+
+            if (json.data) {
+                setResepData(json.data);
+                setResepPagination(json.pagination);
+            } else {
+                setResepData([]);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setResepLoading(false);
+        }
+    }, []);
+
+    // Fetch FAR_RESEP Details
+    const fetchResepDetail = async (noInvoice: string) => {
+        setSelectedInvoice(noInvoice);
+        setModalOpen(true);
+        setDetailLoading(true);
+        try {
+            const selectedUserId = getSelectedDashboardUserId();
+            const res = await fetch(`/api/proxy/farmasi/far-resep/${encodeURIComponent(noInvoice)}/detail`, {
+                headers: getApiHeaders(selectedUserId ? { 'x-impersonate-user-id': selectedUserId } : undefined),
+            });
+            const json = await res.json();
+            if (json.data) {
+                setDetailData(json.data);
+            } else {
+                setDetailData([]);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setDetailLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchDashboardData();
+    }, [fetchDashboardData]);
+
+    useEffect(() => {
+        fetchResepList(1, 10, sortColumn, sortDirection);
+    }, [fetchResepList, sortColumn, sortDirection]);
+
+    useEffect(() => {
+        const unsubscribe = subscribeToTenantChange(() => {
+            fetchDashboardData();
+            fetchResepList(1, resepPagination.limit, sortColumn, sortDirection);
+        });
+        return unsubscribe;
+    }, [fetchDashboardData, fetchResepList, resepPagination.limit, sortColumn, sortDirection]);
+
+    const formatCurrency = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val);
+    const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const currentMonthName = MONTHS[selectedMonth - 1];
+
+    const MedicineTable = ({ title, data }: { title: string, data: TopMedicineItem[] }) => (
+        <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm border border-gray-100 dark:border-neutral-800 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
+                <h3 className="font-medium text-gray-900 dark:text-white">{title}</h3>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 dark:bg-neutral-800 text-gray-500 dark:text-gray-400 font-medium">
+                        <tr>
+                            <th className="px-4 py-3">No</th>
+                            <th className="px-4 py-3">Nama Obat</th>
+                            <th className="px-4 py-3 text-right">Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-neutral-700">
+                        {data.length === 0 ? (
+                            <tr><td colSpan={3} className="px-4 py-8 text-center text-gray-500">Tidak ada data</td></tr>
+                        ) : (
+                            data.map((row, index) => (
+                                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-neutral-800/50">
+                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{index + 1}</td>
+                                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{row.ItemDesc ?? '-'}</td>
+                                    <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white">{row.TotalQty ?? 0}</td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+
+    const resepColumns = [
+        { header: 'No Invoice', accessorKey: 'NoInvoice', className: 'font-medium' },
+        { header: 'Tanggal', accessorKey: 'TgInvoice', cell: (item: any) => item.TgInvoice ? formatDate(item.TgInvoice) : '-' },
+        { header: 'Pasien', accessorKey: 'PasienDesc' },
+        { header: 'Penjamin', accessorKey: 'PenjaminDesc' },
+        { header: 'Total (Rp)', accessorKey: 'RpInvoice', cell: (item: any) => formatCurrency(item.RpInvoice || 0) },
+        {
+            header: 'Aksi',
+            accessorKey: 'action',
+            sortable: false,
+            cell: (item: any) => (
+                <button
+                    onClick={() => fetchResepDetail(item.NoInvoice)}
+                    className="inline-flex items-center gap-1 px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors dark:text-blue-400 dark:bg-blue-900/30 dark:hover:bg-blue-900/50"
+                >
+                    <Eye className="w-4 h-4" /> Detail
+                </button>
+            )
+        }
+    ];
+
+    const detailColumns = [
+        { header: 'No', accessorKey: 'NoUrut', className: 'font-medium' },
+        { header: 'Nama Obat (Master)', accessorKey: 'ItemDescName' },
+        { header: 'Nama Obat (Resep)', accessorKey: 'ItemDesc' },
+        { header: 'Satuan', accessorKey: 'Satuan' },
+        { header: 'Qty', accessorKey: 'Qty' },
+        { header: 'Harga', accessorKey: 'Harga', cell: (item: any) => formatCurrency(item.Harga || 0) },
+        { header: 'Diskon', accessorKey: 'Diskon', cell: (item: any) => formatCurrency(item.Diskon || 0) },
+        { header: 'Netto', accessorKey: 'RpNetto', cell: (item: any) => formatCurrency(item.RpNetto || 0) },
+    ];
+
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+                <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white border-none flex gap-2 items-center">
+                    <Notebook className="h-8 w-8 text-blue-600" /> Resep
+                </h1>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                        className="h-10 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm font-medium"
+                    >
+                        {MONTHS.map((m, i) => (
+                            <option key={m} value={i + 1}>{m}</option>
+                        ))}
+                    </select>
+                    <select
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                        className="h-10 rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2 text-sm font-medium"
+                    >
+                        {Array.from({ length: 10 }, (_, i) => now.getFullYear() - i).map((y) => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            {loading ? (
+                <div className="flex items-center justify-center py-24 gap-2 text-gray-500 dark:text-gray-400">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                    <span>Memuat data...</span>
+                </div>
+            ) : error ? (
+                <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white dark:bg-neutral-900 rounded-3xl border border-dashed border-gray-200 dark:border-neutral-800 shadow-sm mt-8">
+                    <div className="bg-red-50 dark:bg-red-500/10 p-4 rounded-full mb-5 ring-8 ring-red-50/50 dark:ring-red-500/5">
+                        <AlertCircle className="h-10 w-10 text-red-500 dark:text-red-400" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight">
+                        {error.includes('memilih admin') ? 'Akses Dibatasi' : 'Terjadi Kesalahan'}
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
+                        {error}
+                    </p>
+
+                    {error.includes('memilih admin') ? (
+                        <div className="mt-8 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-neutral-800/50 py-2 px-4 rounded-full border border-gray-100 dark:border-neutral-800 flex items-center gap-2">
+                            <span className="text-amber-500">💡</span> Silahkan pilih klinik dari menu dropdown di atas
+                        </div>
+                    ) : (
+                        <div className="mt-8 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-neutral-800/50 py-2 px-4 rounded-full border border-gray-100 dark:border-neutral-800 flex items-center gap-2">
+                            <span>📡</span> Server sedang tidak aktif atau coba refresh kembali untuk memastikan
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <>
+                    {/* Summary Penjualan Resep */}
+                    <section>
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-blue-500" />
+                            Nominal Penjualan Resep
+                        </h2>
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <DashboardCard
+                                title="Hari Ini"
+                                value={formatCurrency(summary.hariIni.nominal)}
+                                subtext={`${summary.hariIni.count} Resep Hari Ini`}
+                                icon={CalendarDays}
+                            />
+                            <DashboardCard
+                                title={`Bulan ${currentMonthName}`}
+                                value={formatCurrency(summary.bulanIni.nominal)}
+                                subtext={`${summary.bulanIni.count} Resep ${currentMonthName} ${selectedYear}`}
+                                icon={CalendarDays}
+                            />
+                            <DashboardCard
+                                title={`Tahun ${selectedYear}`}
+                                value={formatCurrency(summary.tahunIni.nominal)}
+                                subtext={`${summary.tahunIni.count} Resep Tahun ${selectedYear}`}
+                                icon={CalendarDays}
+                            />
+                        </div>
+                    </section>
+
+                    {/* Obat-obatan Paling Banyak Terjual */}
+                    <section>
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <Notebook className="h-5 w-5 text-emerald-500" />
+                            Daftar Obat Paling Banyak Terjual
+                        </h2>
+                        <div className="grid gap-6 md:grid-cols-3">
+                            <MedicineTable title="Hari Ini" data={topMedicines.hariIni} />
+                            <MedicineTable title={`Bulan (${currentMonthName})`} data={topMedicines.bulanIni} />
+                            <MedicineTable title={`Tahun (${selectedYear})`} data={topMedicines.tahunIni} />
+                        </div>
+                    </section>
+                </>
+            )}
+
+            {/* Tabel Daftar Resep */}
+            <section className="pt-4 border-t border-gray-200 dark:border-neutral-800">
+                <DataTable
+                    title="Daftar Transaksi Resep (Farmasi)"
+                    description="Seluruh transaksi penjualan resep."
+                    data={resepData}
+                    columns={resepColumns}
+                    isLoading={resepLoading}
+                    pagination={resepPagination}
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSortChange={(col, dir) => {
+                        setSortColumn(col);
+                        setSortDirection(dir);
+                        fetchResepList(1, resepPagination.limit, col, dir);
+                    }}
+                    onPageChange={(newPage) => fetchResepList(newPage, resepPagination.limit, sortColumn, sortDirection)}
+                    onLimitChange={(newLimit) => fetchResepList(1, newLimit, sortColumn, sortDirection)}
+                />
+            </section>
+
+            {/* Modal Detail Resep */}
+            {modalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+                        <div className="px-6 py-4 border-b border-gray-200 dark:border-neutral-800 flex items-center justify-between bg-gray-50/50 dark:bg-neutral-800/50">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                    <Notebook className="h-5 w-5 text-blue-500" /> Detail Resep
+                                </h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Invoice: <span className="font-medium text-gray-900 dark:text-white">{selectedInvoice}</span></p>
+                            </div>
+                            <button
+                                onClick={() => setModalOpen(false)}
+                                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-lg transition-colors"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 overflow-y-auto w-full">
+                            <div className="border border-gray-200 dark:border-neutral-800 rounded-xl overflow-hidden w-full">
+                                <DataTable
+                                    columns={detailColumns}
+                                    data={detailData}
+                                    isLoading={detailLoading}
+                                />
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t border-gray-200 dark:border-neutral-800 bg-gray-50/50 dark:bg-neutral-800/50 flex justify-end">
+                            <button
+                                onClick={() => setModalOpen(false)}
+                                className="px-4 py-2 bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-700 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+                            >
+                                Tutup
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
