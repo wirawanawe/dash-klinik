@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Loader2, CalendarDays, TrendingUp, Eye, X, Notebook, AlertCircle } from 'lucide-react';
+import { Loader2, CalendarDays, TrendingUp, Eye, X, Notebook, AlertCircle, Search } from 'lucide-react';
 import { getApiHeaders } from '@/lib/api';
 import { getSelectedDashboardUserId, subscribeToTenantChange } from '@/lib/tenant';
 import { DataTable } from '@/components/ui/data-table';
+import { Input } from '@/components/ui/SearchInput';
 
 function DashboardCard({ title, value, subtext, icon: Icon }: { title: string; value: string | number; subtext?: string; icon?: any }) {
     return (
@@ -51,6 +52,19 @@ export default function ResepDashboardPage() {
     });
     const [sortColumn, setSortColumn] = useState<string | undefined>();
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+    const [searchInvoice, setSearchInvoice] = useState('');
+    const [searchPasien, setSearchPasien] = useState('');
+    const [filterTanggal, setFilterTanggal] = useState('');
+
+    const [debouncedInvoice, setDebouncedInvoice] = useState('');
+    const [debouncedPasien, setDebouncedPasien] = useState('');
+
+    useEffect(() => {
+        const timer1 = setTimeout(() => setDebouncedInvoice(searchInvoice), 500);
+        const timer2 = setTimeout(() => setDebouncedPasien(searchPasien), 500);
+        return () => { clearTimeout(timer1); clearTimeout(timer2); };
+    }, [searchInvoice, searchPasien]);
 
     // Details Modal States
     const [modalOpen, setModalOpen] = useState(false);
@@ -102,7 +116,10 @@ export default function ResepDashboardPage() {
         page = 1,
         limit = 10,
         sortBy?: string,
-        sortOrder?: string
+        sortOrder?: string,
+        tanggalQuery = '',
+        invoiceQuery = '',
+        pasienQuery = ''
     ) => {
         setResepLoading(true);
         try {
@@ -113,6 +130,9 @@ export default function ResepDashboardPage() {
 
             if (sortBy) queryParams.append('sortBy', sortBy);
             if (sortOrder) queryParams.append('sortOrder', sortOrder);
+            if (tanggalQuery) queryParams.append('tanggal', tanggalQuery);
+            if (invoiceQuery) queryParams.append('noInvoice', invoiceQuery);
+            if (pasienQuery) queryParams.append('pasien', pasienQuery);
 
             const selectedUserId = getSelectedDashboardUserId();
             const res = await fetch(`/api/proxy/farmasi/far-resep?${queryParams.toString()}`, {
@@ -161,16 +181,16 @@ export default function ResepDashboardPage() {
     }, [fetchDashboardData]);
 
     useEffect(() => {
-        fetchResepList(1, 10, sortColumn, sortDirection);
-    }, [fetchResepList, sortColumn, sortDirection]);
+        fetchResepList(1, resepPagination.limit, sortColumn, sortDirection, filterTanggal, debouncedInvoice, debouncedPasien);
+    }, [fetchResepList, sortColumn, sortDirection, filterTanggal, debouncedInvoice, debouncedPasien, resepPagination.limit]);
 
     useEffect(() => {
         const unsubscribe = subscribeToTenantChange(() => {
             fetchDashboardData();
-            fetchResepList(1, resepPagination.limit, sortColumn, sortDirection);
+            fetchResepList(1, resepPagination.limit, sortColumn, sortDirection, filterTanggal, debouncedInvoice, debouncedPasien);
         });
         return unsubscribe;
-    }, [fetchDashboardData, fetchResepList, resepPagination.limit, sortColumn, sortDirection]);
+    }, [fetchDashboardData, fetchResepList, resepPagination.limit, sortColumn, sortDirection, filterTanggal, debouncedInvoice, debouncedPasien]);
 
     const formatCurrency = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(val);
     const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -342,6 +362,46 @@ export default function ResepDashboardPage() {
 
             {/* Tabel Daftar Resep */}
             <section className="pt-4 border-t border-gray-200 dark:border-neutral-800">
+                <div className="flex flex-col md:flex-row items-center gap-4 mb-4 bg-white dark:bg-neutral-900 p-4 rounded-xl border border-gray-200 dark:border-neutral-800">
+                    <div className="relative flex-1 w-full max-w-sm">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                        <Input
+                            placeholder="Cari No. Invoice..."
+                            value={searchInvoice}
+                            onChange={(e) => setSearchInvoice(e.target.value)}
+                            className="pl-9"
+                        />
+                    </div>
+                    <div className="relative flex-1 w-full max-w-sm">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                        <Input
+                            placeholder="Cari Nama Pasien..."
+                            value={searchPasien}
+                            onChange={(e) => setSearchPasien(e.target.value)}
+                            className="pl-9"
+                        />
+                    </div>
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                            Tanggal
+                        </span>
+                        <input
+                            type="date"
+                            value={filterTanggal}
+                            onChange={(e) => setFilterTanggal(e.target.value)}
+                            className="h-10 rounded-md border border-gray-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {filterTanggal && (
+                            <button
+                                onClick={() => setFilterTanggal('')}
+                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
                 <DataTable
                     title="Daftar Transaksi Resep (Farmasi)"
                     description="Seluruh transaksi penjualan resep."
@@ -354,10 +414,10 @@ export default function ResepDashboardPage() {
                     onSortChange={(col, dir) => {
                         setSortColumn(col);
                         setSortDirection(dir);
-                        fetchResepList(1, resepPagination.limit, col, dir);
+                        fetchResepList(1, resepPagination.limit, col, dir, filterTanggal, debouncedInvoice, debouncedPasien);
                     }}
-                    onPageChange={(newPage) => fetchResepList(newPage, resepPagination.limit, sortColumn, sortDirection)}
-                    onLimitChange={(newLimit) => fetchResepList(1, newLimit, sortColumn, sortDirection)}
+                    onPageChange={(newPage) => fetchResepList(newPage, resepPagination.limit, sortColumn, sortDirection, filterTanggal, debouncedInvoice, debouncedPasien)}
+                    onLimitChange={(newLimit) => fetchResepList(1, newLimit, sortColumn, sortDirection, filterTanggal, debouncedInvoice, debouncedPasien)}
                 />
             </section>
 
