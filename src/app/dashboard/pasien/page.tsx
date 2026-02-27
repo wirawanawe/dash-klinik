@@ -186,10 +186,29 @@ export default function PasienPage() {
         return unsubscribe;
     }, [fetchData, debouncedSearch, pagination.limit, sortColumn, sortDirection, detailOpen, selectedPatient, detailTab, fetchKunjungan, fetchKeluarga]);
 
+    const getStatusFromNoPeserta = (noPeserta: string | number | null | undefined): string => {
+        if (noPeserta == null || String(noPeserta).trim() === '') return '-';
+        const noStr = String(noPeserta).trim();
+        if (noStr.length < 2) return '-';
+        const twoDigits = noStr.substring(0, 2);
+        const yy = parseInt(twoDigits, 10);
+        if (isNaN(yy)) return '-';
+        const currentYear = new Date().getFullYear();
+        const birthYear = yy <= 25 ? 2000 + yy : 1900 + yy;
+        const age = currentYear - birthYear;
+        return age > 56 ? 'Pensiunan' : 'Pegawai';
+    };
+
     const columns = [
         { header: 'No MR', accessorKey: 'No_MR', className: 'font-medium' },
         { header: 'Nama Pasien', accessorKey: 'Nama_Pasien' },
         { header: 'No Peserta', accessorKey: 'Nama_Panggilan' },
+        {
+            header: 'Status',
+            accessorKey: 'Nama_Panggilan',
+            sortable: false,
+            cell: (item: any) => getStatusFromNoPeserta(item?.Nama_Panggilan),
+        },
         {
             header: 'Tgl Lahir',
             accessorKey: 'Tgl_Lahir',
@@ -386,6 +405,7 @@ export default function PasienPage() {
                                         { label: 'No MR', value: selectedPatient.No_MR },
                                         { label: 'Nama Pasien', value: selectedPatient.Nama_Pasien },
                                         { label: 'No Peserta', value: selectedPatient.Nama_Panggilan },
+                                        { label: 'Status', value: getStatusFromNoPeserta(selectedPatient.Nama_Panggilan) },
                                         { label: 'No Kartu (No KPK)', value: selectedPatient.No_KPK },
                                         { label: 'No KTP', value: selectedPatient.NoIdentitas },
                                         { label: 'Jenis Kelamin', value: (selectedPatient.Jenis_Kelamin && selectedPatient.Jenis_Kelamin !== '-') ? selectedPatient.Jenis_Kelamin : 'Tidak diketahui' },
