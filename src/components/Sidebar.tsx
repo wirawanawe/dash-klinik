@@ -21,8 +21,8 @@ const menuItems = [
     { icon: Users, label: 'Pasien', href: '/dashboard/pasien' },
     { icon: Activity, label: 'Kunjungan', href: '/dashboard/kunjungan' },
     { icon: CreditCard, label: 'Transaksi', href: '/dashboard/transaksi' },
-    { icon: Pill, label: 'Farmasi', href: '/dashboard/farmasi' },
-    { icon: Notebook, label: 'Resep', href: '/dashboard/resep' },
+    { icon: Pill, label: 'Master Obat', href: '/dashboard/farmasi' },
+    { icon: Notebook, label: 'Apotek', href: '/dashboard/resep' },
     { icon: Users, label: 'Dokter', href: '/dashboard/dokter' },
     { icon: UserCog, label: 'User', href: '/dashboard/user' },
 ];

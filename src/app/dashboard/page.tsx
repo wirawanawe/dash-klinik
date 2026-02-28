@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Loader2, Users, Pill, Stethoscope, Calendar, BarChart3, AlertCircle } from 'lucide-react';
+import { Loader2, Users, Pill, Stethoscope, Calendar, BarChart3, AlertCircle, ShoppingCart } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getApiHeaders } from '@/lib/api';
 import { getSelectedDashboardUserId, subscribeToTenantChange } from '@/lib/tenant';
@@ -37,6 +37,17 @@ export default function DashboardPage() {
     const [obatBulanIni, setObatBulanIni] = useState<ObatItem[]>([]);
     const [diagnosaTahunIni, setDiagnosaTahunIni] = useState<DiagnosaItem[]>([]);
     const [diagnosaBulanIni, setDiagnosaBulanIni] = useState<DiagnosaItem[]>([]);
+    const [pembelianLoading, setPembelianLoading] = useState(true);
+    const [pembelianGraphLoading, setPembelianGraphLoading] = useState(true);
+    const [pembelianStats, setPembelianStats] = useState({
+        poBulanIni: 0,
+        poTahunIni: 0,
+        nilaiBulanIni: 0,
+        nilaiTahunIni: 0,
+        roBulanIni: 0,
+        roTahunIni: 0,
+    });
+    const [pembelianGraphData, setPembelianGraphData] = useState<{ bulan: number; label: string; nilai: number; jumlahPO: number }[]>([]);
 
     const fetchStats = useCallback(async () => {
         setLoading(true);
@@ -99,6 +110,42 @@ export default function DashboardPage() {
         }
     }, [selectedMonth, selectedYear]);
 
+    const fetchPembelianStats = useCallback(async () => {
+        setPembelianLoading(true);
+        try {
+            const selectedUserId = getSelectedDashboardUserId();
+            const res = await fetch(`/api/proxy/dashboard/pembelian-obat/stats?month=${selectedMonth}&year=${selectedYear}`, {
+                headers: getApiHeaders(selectedUserId ? { 'x-impersonate-user-id': selectedUserId } : undefined),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message || 'Gagal memuat data pembelian');
+            setPembelianStats(json.pembelianObat ?? { poBulanIni: 0, poTahunIni: 0, nilaiBulanIni: 0, nilaiTahunIni: 0, roBulanIni: 0, roTahunIni: 0 });
+        } catch (e) {
+            console.error(e);
+            setPembelianStats({ poBulanIni: 0, poTahunIni: 0, nilaiBulanIni: 0, nilaiTahunIni: 0, roBulanIni: 0, roTahunIni: 0 });
+        } finally {
+            setPembelianLoading(false);
+        }
+    }, [selectedMonth, selectedYear]);
+
+    const fetchPembelianGraph = useCallback(async () => {
+        setPembelianGraphLoading(true);
+        try {
+            const selectedUserId = getSelectedDashboardUserId();
+            const res = await fetch(`/api/proxy/dashboard/pembelian-obat/graph?year=${selectedYear}`, {
+                headers: getApiHeaders(selectedUserId ? { 'x-impersonate-user-id': selectedUserId } : undefined),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message || 'Gagal memuat grafik pembelian');
+            setPembelianGraphData(json.data ?? []);
+        } catch (e) {
+            console.error(e);
+            setPembelianGraphData([]);
+        } finally {
+            setPembelianGraphLoading(false);
+        }
+    }, [selectedYear]);
+
     useEffect(() => {
         fetchStats();
     }, [fetchStats]);
@@ -108,12 +155,22 @@ export default function DashboardPage() {
     }, [fetchGraph]);
 
     useEffect(() => {
+        fetchPembelianStats();
+    }, [fetchPembelianStats]);
+
+    useEffect(() => {
+        fetchPembelianGraph();
+    }, [fetchPembelianGraph]);
+
+    useEffect(() => {
         const unsubscribe = subscribeToTenantChange(() => {
             fetchStats();
             fetchGraph();
+            fetchPembelianStats();
+            fetchPembelianGraph();
         });
         return unsubscribe;
-    }, [fetchStats, fetchGraph]);
+    }, [fetchStats, fetchGraph, fetchPembelianStats, fetchPembelianGraph]);
 
     const currentMonthName = MONTHS[selectedMonth - 1];
 
@@ -231,6 +288,71 @@ export default function DashboardPage() {
                                 </div>
                             )}
                         </div>
+                    </section>
+
+                    {/* Pembelian Obat (PO/RO) */}
+                    <section>
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <ShoppingCart className="h-5 w-5 text-emerald-500" />
+                            Pembelian Obat
+                        </h2>
+                        {pembelianLoading ? (
+                            <div className="flex items-center justify-center py-12 gap-2 text-gray-500 dark:text-gray-400">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <span>Memuat data pembelian...</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="grid gap-4 md:grid-cols-3 mb-6">
+                                    <DashboardCard
+                                        title="PO Bulan Ini"
+                                        value={pembelianStats.poBulanIni}
+                                        subtext={`Tahun ${selectedYear}: ${pembelianStats.poTahunIni} PO`}
+                                        icon={ShoppingCart}
+                                    />
+                                    <DashboardCard
+                                        title="Nilai Pembelian Bulan Ini"
+                                        value={new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(pembelianStats.nilaiBulanIni)}
+                                        subtext={`Tahun ${selectedYear}: ${new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(pembelianStats.nilaiTahunIni)}`}
+                                        icon={Pill}
+                                    />
+                                    <DashboardCard
+                                        title="RO Bulan Ini"
+                                        value={pembelianStats.roBulanIni}
+                                        subtext={`Tahun ${selectedYear}: ${pembelianStats.roTahunIni} RO`}
+                                        icon={ShoppingCart}
+                                    />
+                                </div>
+                                <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm border border-gray-100 dark:border-neutral-800 p-6">
+                                    <h3 className="font-medium text-gray-900 dark:text-white mb-4">Nilai Pembelian per Bulan ({selectedYear})</h3>
+                                    {pembelianGraphLoading ? (
+                                        <div className="h-[300px] flex items-center justify-center text-gray-500">
+                                            <Loader2 className="h-8 w-8 animate-spin" />
+                                        </div>
+                                    ) : pembelianGraphData.length === 0 ? (
+                                        <div className="h-[300px] flex items-center justify-center text-gray-500">
+                                            Tidak ada data pembelian
+                                        </div>
+                                    ) : (
+                                        <div className="h-[300px] w-full">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <BarChart data={pembelianGraphData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" vertical={false} />
+                                                    <XAxis dataKey="label" tick={{ fontSize: 11 }} tickMargin={8} />
+                                                    <YAxis tick={{ fontSize: 11 }} tickMargin={8} tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}Jt` : `${(v / 1e3).toFixed(0)}Rb`} />
+                                                    <Tooltip
+                                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                                        formatter={(value: number | undefined) => [new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value ?? 0), 'Nilai']}
+                                                        labelFormatter={(label) => label}
+                                                    />
+                                                    <Bar dataKey="nilai" fill="#10b981" radius={[4, 4, 0, 0]} name="Nilai Pembelian" />
+                                                </BarChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </section>
 
                     {/* Obat-obatan yang Sering Diresepkan */}
