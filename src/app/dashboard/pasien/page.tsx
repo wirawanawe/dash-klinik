@@ -106,7 +106,7 @@ export default function PasienPage() {
                 noMR: selectedPatient.No_MR,
             });
             const selectedUserId = getSelectedDashboardUserId();
-            const res = await fetch(`/api/proxy/kunjungan?${queryParams.toString()}`, {
+            const res = await fetch(`/api/proxy/kunjungan/by-pasien?${queryParams.toString()}`, {
                 headers: getApiHeaders(selectedUserId ? { 'x-impersonate-user-id': selectedUserId } : undefined),
             });
             const json = await res.json().catch(() => ({}));

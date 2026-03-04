@@ -85,10 +85,22 @@ export default function DokterPage() {
     };
 
     const columns = [
-        { header: 'ID', accessorKey: 'Dokter_ID', className: 'w-[100px]' },
         { header: 'Nama Dokter', accessorKey: 'Dokter_Name', className: 'font-medium' },
-        { header: 'Spesialis', accessorKey: 'Spesialis', cell: (item: any) => item.Spesialis || '-' },
-        { header: 'No HP', accessorKey: 'HP1', cell: (item: any) => item.HP1 || '-' },
+        {
+            header: 'Pasien Hari Ini',
+            accessorKey: 'PasienHariIni',
+            cell: (item: any) => item.PasienHariIni ?? 0,
+        },
+        {
+            header: 'Pasien Bulan Ini',
+            accessorKey: 'PasienBulanIni',
+            cell: (item: any) => item.PasienBulanIni ?? 0,
+        },
+        {
+            header: 'Pasien Tahun Ini',
+            accessorKey: 'PasienTahunIni',
+            cell: (item: any) => item.PasienTahunIni ?? 0,
+        },
     ];
 
     return (
