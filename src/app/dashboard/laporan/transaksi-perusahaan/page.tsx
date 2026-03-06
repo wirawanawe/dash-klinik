@@ -97,11 +97,9 @@ export default function LaporanTransaksiPerusahaanPage() {
                         );
                         const detJson = await detRes.json();
                         const detData: any[] = detJson.data ?? [];
+                        // Biaya dokter umum khusus dari Item_Produk_ID = 2
                         biayaDokterUmum = detData
-                            .filter((d) => {
-                                const nama = String(d.Nama_Layanan ?? d.Item_Produk_Name ?? '').toLowerCase();
-                                return nama.includes('dokter') && nama.includes('umum');
-                            })
+                            .filter((d) => Number(d.Item_Produk_ID) === 2)
                             .reduce(
                                 (sum, d) =>
                                     sum +

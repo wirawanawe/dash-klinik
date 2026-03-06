@@ -1,7 +1,7 @@
 'use client';
 
 import { Input } from '@/components/ui/SearchInput';
-import { Search, X, FileText, Loader2, Users, Calendar, BarChart3 } from 'lucide-react';
+import { Search, X, FileText, Loader2, Users, Calendar, BarChart3, Printer } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useCallback, useState, useEffect } from 'react';
 import { DataTable } from '@/components/ui/data-table';
@@ -612,17 +612,27 @@ export default function KunjunganPage() {
 
             {detailOpen && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-neutral-800 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+                    <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-neutral-800 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden detail-kunjungan-print">
                         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-700 dark:to-indigo-700 px-6 py-5 flex items-center justify-between shrink-0">
                             <h2 className="text-xl font-bold text-white">Detail Kunjungan</h2>
-                            <button
-                                type="button"
-                                onClick={() => setDetailOpen(false)}
-                                className="p-2 rounded-lg hover:bg-white/20 text-white transition-colors"
-                                aria-label="Tutup"
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => window.print()}
+                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium text-white transition-colors"
+                                >
+                                    <Printer className="h-4 w-4" />
+                                    Cetak
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setDetailOpen(false)}
+                                    className="p-2 rounded-lg hover:bg-white/20 text-white transition-colors"
+                                    aria-label="Tutup"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
                         </div>
                         <div className="flex-1 overflow-auto p-6 space-y-6">
                             {detailLoading ? (
@@ -635,6 +645,12 @@ export default function KunjunganPage() {
                             ) : detailKunjungan ? (
                                 <>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-gray-50 dark:bg-neutral-800/50 border border-gray-200 dark:border-neutral-700">
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">No. Kunjungan</p>
+                                            <p className="font-medium text-gray-900 dark:text-white">
+                                                {detailKunjungan.Kunjungan_ID ?? '-'}
+                                            </p>
+                                        </div>
                                         <div>
                                             <p className="text-xs text-gray-500 dark:text-gray-400">Tgl Kunjungan</p>
                                             <p className="font-medium text-gray-900 dark:text-white">

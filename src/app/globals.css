@@ -24,3 +24,33 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  /* Hanya tampilkan konten detail kunjungan di kertas */
+  body * {
+    visibility: hidden;
+  }
+
+  .detail-kunjungan-print,
+  .detail-kunjungan-print * {
+    visibility: visible;
+  }
+
+  .detail-kunjungan-print {
+    position: static !important;
+    inset: auto !important;
+    max-height: none !important;
+    width: auto !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
