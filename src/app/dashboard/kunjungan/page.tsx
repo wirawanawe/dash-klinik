@@ -84,6 +84,10 @@ export default function KunjunganPage() {
     const [graphStatusMonth, setGraphStatusMonth] = useState<GraphMonthDatum[]>([]);
     const [graphStatusYear, setGraphStatusYear] = useState<GraphYearDatum[]>([]);
 
+    const [topMedicinesLoading, setTopMedicinesLoading] = useState(true);
+    const [topMedicines, setTopMedicines] = useState<{ hariIni: any[], mingguIni: any[], bulanIni: any[] }>({ hariIni: [], mingguIni: [], bulanIni: [] });
+    const [topMedicinesError, setTopMedicinesError] = useState<string | null>(null);
+
     const currentMonthName = MONTHS[selectedMonth - 1];
 
     const fetchData = useCallback(async (page = 1, searchQuery = '', start = '', end = '', limit = 10, sortBy?: string, sortOrder?: string) => {
@@ -235,6 +239,25 @@ export default function KunjunganPage() {
         }
     }, [selectedMonth, selectedYear]);
 
+    const fetchTopMedicines = useCallback(async () => {
+        setTopMedicinesLoading(true);
+        setTopMedicinesError(null);
+        try {
+            const selectedUserId = getSelectedDashboardUserId();
+            const res = await fetch(`/api/proxy/resep/top-kunjungan-medicines?month=${selectedMonth}&year=${selectedYear}`, {
+                headers: getApiHeaders(selectedUserId ? { 'x-impersonate-user-id': selectedUserId } : undefined),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.message || 'Gagal memuat resep');
+            setTopMedicines(json.data ?? { hariIni: [], mingguIni: [], bulanIni: [] });
+        } catch (e) {
+            console.error(e);
+            setTopMedicinesError(e instanceof Error ? e.message : 'Gagal memuat obat tertinggi');
+        } finally {
+            setTopMedicinesLoading(false);
+        }
+    }, [selectedMonth, selectedYear]);
+
     const fetchDetail = useCallback(async (item: any) => {
         const id = item?.Kunjungan_ID;
         if (id == null || id === '') {
@@ -282,7 +305,8 @@ export default function KunjunganPage() {
         fetchKunjunganSummary();
         fetchGraph();
         fetchGraphStatus();
-    }, [fetchKunjunganSummary, fetchGraph, fetchGraphStatus]);
+        fetchTopMedicines();
+    }, [fetchKunjunganSummary, fetchGraph, fetchGraphStatus, fetchTopMedicines]);
 
     useEffect(() => {
         fetchData(1, debouncedSearch, startDate, endDate, pagination.limit, sortColumn, sortDirection);
@@ -561,6 +585,88 @@ export default function KunjunganPage() {
                                 </div>
                             )}
                         </div>
+                    </section>
+
+                    <section className="mb-6">
+                        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-indigo-500" />
+                            Obat Terlaris / Sering Diresepkan
+                        </h2>
+                        {topMedicinesLoading ? (
+                            <div className="flex items-center justify-center py-8 gap-2 text-gray-500 dark:text-gray-400">
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                                <span>Memuat data obat...</span>
+                            </div>
+                        ) : topMedicinesError ? (
+                            <div className="bg-white dark:bg-neutral-900 rounded-xl border border-dashed border-red-200 dark:border-red-800 p-4 text-sm text-red-600 dark:text-red-400">
+                                Gagal memuat data obat. {topMedicinesError}
+                            </div>
+                        ) : (
+                            <div className="grid gap-4 xl:grid-cols-3">
+                                <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
+                                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">Hari Ini</h3>
+                                    <div className="space-y-4">
+                                        {topMedicines.hariIni?.length === 0 ? (
+                                            <p className="text-sm text-gray-400">Tidak ada data hari ini</p>
+                                        ) : (
+                                            topMedicines.hariIni?.slice(0, 10).map((m: any, i: number) => (
+                                                <div key={i} className="flex flex-col gap-1.5">
+                                                    <div className="flex items-start justify-between">
+                                                        <span className="text-sm font-medium text-gray-900 dark:text-white pr-2 line-clamp-2 leading-tight">{m.ItemDesc ?? '-'}</span>
+                                                        <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{m.TotalQty}</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-100 dark:bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                                                        <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${Math.min((m.TotalQty / (topMedicines.hariIni[0]?.TotalQty || 1)) * 100, 100)}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
+                                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">Minggu Ini</h3>
+                                    <div className="space-y-4">
+                                        {topMedicines.mingguIni?.length === 0 ? (
+                                            <p className="text-sm text-gray-400">Tidak ada data minggu ini</p>
+                                        ) : (
+                                            topMedicines.mingguIni?.slice(0, 10).map((m: any, i: number) => (
+                                                <div key={i} className="flex flex-col gap-1.5">
+                                                    <div className="flex items-start justify-between">
+                                                        <span className="text-sm font-medium text-gray-900 dark:text-white pr-2 line-clamp-2 leading-tight">{m.ItemDesc ?? '-'}</span>
+                                                        <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{m.TotalQty}</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-100 dark:bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                                                        <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${Math.min((m.TotalQty / (topMedicines.mingguIni[0]?.TotalQty || 1)) * 100, 100)}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
+                                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">Bulan Ini</h3>
+                                    <div className="space-y-4">
+                                        {topMedicines.bulanIni?.length === 0 ? (
+                                            <p className="text-sm text-gray-400">Tidak ada data bulan ini</p>
+                                        ) : (
+                                            topMedicines.bulanIni?.slice(0, 10).map((m: any, i: number) => (
+                                                <div key={i} className="flex flex-col gap-1.5">
+                                                    <div className="flex items-start justify-between">
+                                                        <span className="text-sm font-medium text-gray-900 dark:text-white pr-2 line-clamp-2 leading-tight">{m.ItemDesc ?? '-'}</span>
+                                                        <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{m.TotalQty}</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-100 dark:bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                                                        <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${Math.min((m.TotalQty / (topMedicines.bulanIni[0]?.TotalQty || 1)) * 100, 100)}%` }}></div>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </section>
                 </>
             )}
