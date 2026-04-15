@@ -1,7 +1,8 @@
 'use client';
 
 import { Input } from '@/components/ui/SearchInput';
-import { Search } from 'lucide-react';
+import { Search, Download, Loader2 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useCallback, useState, useEffect } from 'react';
 import { DataTable } from '@/components/ui/data-table';
 import { getSelectedDashboardUserId } from '@/lib/tenant';
@@ -20,6 +21,7 @@ export default function FarmasiPage() {
     });
     const [sortColumn, setSortColumn] = useState<string | undefined>();
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [pabrikFilter, setPabrikFilter] = useState('');
@@ -95,6 +97,59 @@ export default function FarmasiPage() {
         fetchData(1, debouncedSearch, statusFilter, pagination.limit, debouncedPabrik, debouncedGolongan, sortColumn, sortDirection);
     }, [debouncedSearch, statusFilter, debouncedPabrik, debouncedGolongan, sortColumn, sortDirection, fetchData, pagination.limit]);
 
+    const handleDownloadExcel = async () => {
+        setIsDownloading(true);
+        try {
+            const queryParams = new URLSearchParams({
+                page: '1',
+                limit: '999999',
+            });
+
+            if (debouncedSearch) queryParams.append('namaObat', debouncedSearch);
+            if (statusFilter !== 'all') queryParams.append('aktif', statusFilter);
+            if (debouncedPabrik) queryParams.append('pabrik', debouncedPabrik);
+            if (debouncedGolongan) queryParams.append('golongan', debouncedGolongan);
+            if (sortColumn) queryParams.append('sortBy', sortColumn);
+            if (sortDirection) queryParams.append('sortOrder', sortDirection);
+
+            const selectedUserId = getSelectedDashboardUserId();
+            const res = await fetch(`/api/proxy/farmasi/obat?${queryParams.toString()}`, {
+                headers: getApiHeaders(selectedUserId ? { 'x-impersonate-user-id': selectedUserId } : undefined),
+            });
+            const json = await res.json();
+            
+            const allData = json.data || [];
+            
+            if (!allData.length) {
+                alert('Tidak ada data untuk diunduh');
+                return;
+            }
+
+            const dataForSheet = allData.map((item: any, index: number) => ({
+                'No': index + 1,
+                'KFA Code': item.KFA_Code || '-',
+                'APLN Code': item.APLN_Code || '-',
+                'Nama Obat': item.Detail || '-',
+                'Pabrik': item.Pabrik || '-',
+                'Golongan': item.Golongan || '-',
+                'Satuan': item.SmallUnit || '-',
+                'Stok': item.Stok || '-',
+                'HNA': item.HNA || '-',
+                'Status': item.Berlaku ? 'Active' : 'Inactive'
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(dataForSheet);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Daftar Obat');
+            XLSX.writeFile(wb, 'daftar_obat.xlsx');
+        } catch (err) {
+            console.error('Failed to download excel:', err);
+            alert('Gagal mengunduh data');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     const columns = [
         { header: 'KFA Code', accessorKey: 'KFA_Code', className: 'font-medium' },
         { header: 'APLN Code', accessorKey: 'APLN_Code' },
@@ -126,6 +181,14 @@ export default function FarmasiPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Farmasi</h1>
+                <button
+                    onClick={handleDownloadExcel}
+                    disabled={isDownloading || loading}
+                    className="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 text-sm font-medium transition-colors"
+                >
+                    {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    Download Excel
+                </button>
             </div>
 
             <div className="flex flex-wrap items-center gap-4 bg-white dark:bg-neutral-900 p-4 rounded-xl border border-gray-200 dark:border-neutral-800">

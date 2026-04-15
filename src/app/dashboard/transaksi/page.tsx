@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Loader2, Receipt, Calendar, TrendingUp, Search, X, Eye } from 'lucide-react';
+import { Loader2, Receipt, Calendar, TrendingUp, Search, X, Eye, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { getSelectedDashboardUserId } from '@/lib/tenant';
 import { getApiHeaders } from '@/lib/api';
 
@@ -155,6 +156,8 @@ export default function TransaksiPage() {
     // modal
     const [selectedNoTransaksi, setSelectedNoTransaksi] = useState<string | null>(null);
 
+    const [isDownloading, setIsDownloading] = useState(false);
+
     const uid = getSelectedDashboardUserId();
     const headers = getApiHeaders(uid ? { 'x-impersonate-user-id': uid } : undefined);
 
@@ -196,6 +199,44 @@ export default function TransaksiPage() {
         }
     }, [noTransaksi, noMR, startDate, endDate]);
 
+    const handleDownloadExcel = async () => {
+        setIsDownloading(true);
+        try {
+            const params = new URLSearchParams({ page: '1', limit: '999999' });
+            if (noTransaksi) params.set('noTransaksi', noTransaksi);
+            if (noMR) params.set('noMR', noMR);
+            if (startDate) params.set('startDate', startDate);
+            if (endDate) params.set('endDate', endDate);
+
+            const res = await fetch(`/api/proxy/transactions?${params.toString()}`, { headers });
+            const json = await res.json();
+            
+            const allData = json.data || [];
+            if (!allData.length) {
+                alert('Tidak ada data untuk diunduh');
+                return;
+            }
+
+            const dataForSheet = allData.map((item: any, index: number) => ({
+                'No': index + 1,
+                'No Transaksi': item.No_Transaksi || '-',
+                'Tgl Transaksi': item.Tgl_Transaksi ? fmtDate(item.Tgl_Transaksi) : '-',
+                'No MR': item.No_MR || '-',
+                'Total Biaya': item.Total || 0,
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(dataForSheet);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Riwayat Transaksi');
+            XLSX.writeFile(wb, 'riwayat_transaksi.xlsx');
+        } catch (err) {
+            console.error('Failed to download excel:', err);
+            alert('Gagal mengunduh data');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     useEffect(() => { fetchSummary(); }, [fetchSummary]);
     useEffect(() => { fetchData(1); }, []);
 
@@ -212,6 +253,14 @@ export default function TransaksiPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Transaksi</h1>
+                <button
+                    onClick={handleDownloadExcel}
+                    disabled={isDownloading || loading}
+                    className="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 text-sm font-medium transition-colors"
+                >
+                    {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    Download Excel
+                </button>
             </div>
 
             {/* Summary Cards */}

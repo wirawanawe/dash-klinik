@@ -1,7 +1,8 @@
 'use client';
 
 import { Input } from '@/components/ui/SearchInput';
-import { Search, X, FileText, Loader2, Users, Calendar, BarChart3, Printer } from 'lucide-react';
+import { Search, X, FileText, Loader2, Users, Calendar, BarChart3, Printer, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useCallback, useState, useEffect } from 'react';
 import { DataTable } from '@/components/ui/data-table';
@@ -57,6 +58,7 @@ export default function KunjunganPage() {
     });
     const [sortColumn, setSortColumn] = useState<string | undefined>();
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+    const [isDownloading, setIsDownloading] = useState(false);
 
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [detailOpen, setDetailOpen] = useState(false);
@@ -319,6 +321,64 @@ export default function KunjunganPage() {
     // Actually, onLimitChange calls fetchData(1, ..., newLimit) but doesn't update state `pagination` immediately
     // until `setData` is called. So it's fine.
 
+    const handleDownloadExcel = async () => {
+        setIsDownloading(true);
+        try {
+            const queryParams = new URLSearchParams({
+                page: '1',
+                limit: '999999',
+            });
+
+            if (debouncedSearch) {
+                if (/^\d+$/.test(debouncedSearch)) {
+                    queryParams.append('noMR', debouncedSearch);
+                } else {
+                    queryParams.append('namaPeserta', debouncedSearch);
+                }
+            }
+
+            if (startDate) queryParams.append('startDate', startDate);
+            if (endDate) queryParams.append('endDate', endDate);
+            if (sortColumn) queryParams.append('sortBy', sortColumn);
+            if (sortDirection) queryParams.append('sortOrder', sortDirection);
+
+            const selectedUserId = getSelectedDashboardUserId();
+            const res = await fetch(`/api/proxy/kunjungan?${queryParams.toString()}`, {
+                headers: getApiHeaders(selectedUserId ? { 'x-impersonate-user-id': selectedUserId } : undefined),
+            });
+            const json = await res.json();
+            
+            const allData = json.data || [];
+            
+            if (!allData.length) {
+                alert('Tidak ada data untuk diunduh');
+                return;
+            }
+
+            const dataForSheet = allData.map((item: any, index: number) => ({
+                'No': index + 1,
+                'No Kunjungan': item.Kunjungan_ID || '-',
+                'Tgl Kunjungan': item.Tgl_Kunjungan ? new Date(item.Tgl_Kunjungan).toLocaleDateString('id-ID') : '-',
+                'No MR': item.No_MR || '-',
+                'No. Kartu': item.No_KPK || '-',
+                'Nama Pasien': item.Nama_Peserta || '-',
+                'Status': getStatusFromNoPeserta(item.Nama_Panggilan),
+                'Dokter': item.Dokter_Name || '-',
+                'Poli': item.Unit_Name || item.Unit_ID || '-'
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(dataForSheet);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Riwayat Kunjungan');
+            XLSX.writeFile(wb, 'riwayat_kunjungan.xlsx');
+        } catch (err) {
+            console.error('Failed to download excel:', err);
+            alert('Gagal mengunduh data');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
+
     const columns = [
         { header: 'No Kunjungan', accessorKey: 'Kunjungan_ID', className: 'font-medium' },
         {
@@ -366,6 +426,14 @@ export default function KunjunganPage() {
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Kunjungan</h1>
                 <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleDownloadExcel}
+                        disabled={isDownloading || loading}
+                        className="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 text-sm font-medium transition-colors mr-2"
+                    >
+                        {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                        Download Excel
+                    </button>
                     <select
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(Number(e.target.value))}
