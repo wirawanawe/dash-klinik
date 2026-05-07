@@ -4,34 +4,45 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Building2, Search, Download } from 'lucide-react';
 import { getApiHeaders } from '@/lib/api';
 import { getSelectedDashboardUserId } from '@/lib/tenant';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 type Row = {
     no: number;
     noKunjungan: string;
+    tglKunjungan: string;
     noMR: string;
     namaPasien: string;
-    namaDokter: string;
-   diagnosa: string;
-    biayaDokterUmum: number;
-    noApotek: string;
+    noPeserta: string;
+    noTagihan: string;
+    perusahaan: string;
     namaObat: string;
     qty: number;
     harga: number;
-    jumlah: number;
-    total: number;
-    penjamin: string;
-    perusahaan: string;
+    jumlahHargaObat: number;
+    biayaDokter: number;
+    biayaObatTotal: number;
+    jumlahTotal: number;
 };
 
 function formatIDR(v: number | null | undefined) {
+    if (v === 0) return '-';
     return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
+        style: 'decimal',
+        minimumFractionDigits: 0,
         maximumFractionDigits: 0,
     }).format(v ?? 0);
+}
+
+function formatDate(dateStr: string) {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+    });
 }
 
 export default function LaporanTransaksiPerusahaanPage() {
@@ -84,28 +95,109 @@ export default function LaporanTransaksiPerusahaanPage() {
         [rows, page, pageSize]
     );
 
-    const handleDownloadXlsx = () => {
+    const handleDownloadXlsx = async () => {
         if (!rows.length) return;
-        const dataForSheet = rows.map((r) => ({
-            'No Kunjungan': r.noKunjungan,
-            'No MR': r.noMR,
-            'Nama Pasien': r.namaPasien,
-            'Nama Dokter': r.namaDokter,
-            Diagnosa: r.diagnosa,
-            'Biaya Dr Umum': r.biayaDokterUmum,
-            'No Apotek': r.noApotek,
-            'Nama Obat': r.namaObat,
-            QTY: r.qty,
-            Harga: r.harga,
-            Jumlah: r.jumlah,
-            Total: r.total,
-            Penjamin: r.penjamin,
-            Perusahaan: r.perusahaan,
-        }));
-        const ws = XLSX.utils.json_to_sheet(dataForSheet);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Laporan Transaksi');
-        XLSX.writeFile(wb, 'laporan_transaksi_perusahaan.xlsx');
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Laporan Transaksi');
+
+        // Define Columns
+        worksheet.columns = [
+            { header: 'NO', key: 'no', width: 5 },
+            { header: 'TANGGAL', key: 'tanggal', width: 15 },
+            { header: 'NAMA PASIEN', key: 'nama_pasien', width: 25 },
+            { header: 'NO REGISTER', key: 'no_mr', width: 20 },
+            { header: 'NOMOR TAGIHAN', key: 'no_tagihan', width: 20 },
+            { header: 'PERUSAHAAN', key: 'perusahaan', width: 20 },
+            { header: 'NAMA OBAT / ALAT KESEHATAN', key: 'nama_obat', width: 35 },
+            { header: 'QTY', key: 'qty', width: 8 },
+            { header: 'HARGA @ OBAT', key: 'harga', width: 15 },
+            { header: 'JUMLAH HARGA OBAT', key: 'jumlah_harga', width: 18 },
+            { header: 'BIAYA DOKTER, LAB DAN OTHER', key: 'biaya_dokter', width: 20 },
+            { header: 'OBAT Rp.', key: 'obat_base', width: 15 },
+            { header: 'LAB Rp.', key: 'lab', width: 12 },
+            { header: 'OTHER Rp.', key: 'other', width: 12 },
+            { header: 'PPN Rp.', key: 'ppn', width: 12 },
+            { header: 'PPH 22 Rp.', key: 'pph22', width: 12 },
+            { header: 'PPH 23 Rp.', key: 'pph23', width: 12 },
+            { header: 'BIAYA OBAT Rp.', key: 'biaya_obat', width: 18 },
+            { header: 'JUMLAH Rp.', key: 'jumlah_total', width: 18 },
+        ];
+
+        // Style Header
+        const headerRow = worksheet.getRow(1);
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        headerRow.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF2563EB' }, // blue-600
+        };
+        headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        headerRow.height = 30;
+
+        let lastKunjungan = '';
+        let groupNo = 0;
+
+        rows.forEach((r) => {
+            const isFirstInGroup = r.noKunjungan !== lastKunjungan;
+            if (isFirstInGroup) {
+                lastKunjungan = r.noKunjungan;
+                groupNo++;
+            }
+
+            const baseObat = Math.round(r.biayaObatTotal * 100 / 111);
+            const ppn = r.biayaObatTotal - baseObat;
+
+            const row = worksheet.addRow({
+                no: isFirstInGroup ? groupNo : '',
+                tanggal: isFirstInGroup ? formatDate(r.tglKunjungan) : '',
+                nama_pasien: isFirstInGroup ? r.namaPasien : '',
+                no_mr: isFirstInGroup ? r.noMR : '',
+                no_tagihan: isFirstInGroup ? r.noTagihan : '',
+                perusahaan: isFirstInGroup ? r.perusahaan : '',
+                nama_obat: r.namaObat,
+                qty: r.qty,
+                harga: r.harga,
+                jumlah_harga: r.jumlahHargaObat,
+                biaya_dokter: isFirstInGroup ? r.biayaDokter : '',
+                obat_base: isFirstInGroup ? baseObat : '',
+                lab: '',
+                other: '',
+                ppn: isFirstInGroup ? ppn : '',
+                pph22: '',
+                pph23: '',
+                biaya_obat: isFirstInGroup ? r.biayaObatTotal : '',
+                jumlah_total: isFirstInGroup ? r.jumlahTotal : '',
+            });
+
+            // Alignment and borders
+            row.eachCell((cell) => {
+                cell.border = {
+                    top: { style: 'thin' },
+                    left: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    right: { style: 'thin' },
+                };
+                if (typeof cell.value === 'number') {
+                    cell.numFmt = '#,##0';
+                }
+            });
+        });
+
+        // Add auto filters
+        worksheet.autoFilter = {
+            from: 'A1',
+            to: `S${rows.length + 1}`,
+        };
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `laporan_transaksi_perusahaan_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.click();
+        window.URL.revokeObjectURL(url);
     };
 
     return (
@@ -183,30 +275,34 @@ export default function LaporanTransaksiPerusahaanPage() {
                     </div>
                 </div>
                 <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 dark:bg-neutral-800 text-gray-600 dark:text-gray-300">
+                <table className="w-full text-[11px] text-left border-collapse">
+                    <thead className="bg-gray-50 dark:bg-neutral-800 text-gray-600 dark:text-gray-300 uppercase font-bold text-[10px]">
                         <tr>
-                            <th className="px-4 py-3">No</th>
-                            <th className="px-4 py-3">No Kunjungan</th>
-                            <th className="px-4 py-3">No MR</th>
-                            <th className="px-4 py-3">Nama Pasien</th>
-                            <th className="px-4 py-3">Nama Dokter</th>
-                            <th className="px-4 py-3">Diagnosa</th>
-                            <th className="px-4 py-3 text-right">Biaya Dr Umum</th>
-                            <th className="px-4 py-3">No Apotek</th>
-                            <th className="px-4 py-3">Nama Obat</th>
-                            <th className="px-4 py-3 text-right">QTY</th>
-                            <th className="px-4 py-3 text-right">Harga</th>
-                            <th className="px-4 py-3 text-right">Jumlah</th>
-                            <th className="px-4 py-3 text-right">Total</th>
-                            <th className="px-4 py-3">Penjamin</th>
-                            <th className="px-4 py-3">Perusahaan</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-center">NO</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700">TANGGAL</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700">NAMA PASIEN</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700">NO REGISTER</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700">NOMOR TAGIHAN</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700">PERUSAHAAN</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700">NAMA OBAT / ALAT KESEHATAN</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-center">QTY</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-right">HARGA @ OBAT</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-right">JUMLAH HARGA OBAT</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-right">BIAYA DOKTER, LAB DAN OTHER</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-right">OBAT Rp.</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-right">LAB Rp.</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-right">OTHER Rp.</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-right">PPN Rp.</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-right">PPH 22 Rp.</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-right">PPH 23 Rp.</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-right font-bold">BIAYA OBAT Rp.</th>
+                            <th className="px-2 py-3 border border-gray-200 dark:border-neutral-700 text-right font-bold">JUMLAH Rp.</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-neutral-800">
                         {loading ? (
                             <tr>
-                                <td colSpan={15} className="px-4 py-16 text-center text-gray-500 dark:text-gray-400">
+                                <td colSpan={19} className="px-4 py-16 text-center text-gray-500 dark:text-gray-400">
                                     <div className="inline-flex items-center gap-2">
                                         <Loader2 className="h-5 w-5 animate-spin" /> Memuat data...
                                     </div>
@@ -214,40 +310,49 @@ export default function LaporanTransaksiPerusahaanPage() {
                             </tr>
                         ) : rows.length === 0 ? (
                             <tr>
-                                <td colSpan={15} className="px-4 py-16 text-center text-gray-500 dark:text-gray-400">
+                                <td colSpan={19} className="px-4 py-16 text-center text-gray-500 dark:text-gray-400">
                                     Tidak ada data untuk rentang tanggal ini.
                                 </td>
                             </tr>
                         ) : (
-                            paginatedRows.map((r) => (
-                                <tr key={r.no} className="hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition-colors">
-                                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{r.no}</td>
-                                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{r.noKunjungan}</td>
-                                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{r.noMR}</td>
-                                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{r.namaPasien}</td>
-                                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{r.namaDokter}</td>
-                                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">
-                                        {r.diagnosa || '-'}
-                                    </td>
-                                    <td className="px-4 py-2 text-right text-gray-700 dark:text-gray-300">
-                                        {formatIDR(r.biayaDokterUmum)}
-                                    </td>
-                                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{r.noApotek}</td>
-                                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{r.namaObat}</td>
-                                    <td className="px-4 py-2 text-right text-gray-700 dark:text-gray-300">{r.qty}</td>
-                                    <td className="px-4 py-2 text-right text-gray-700 dark:text-gray-300">
-                                        {formatIDR(r.harga)}
-                                    </td>
-                                    <td className="px-4 py-2 text-right text-gray-700 dark:text-gray-300">
-                                        {formatIDR(r.jumlah)}
-                                    </td>
-                                    <td className="px-4 py-2 text-right font-semibold text-gray-900 dark:text-white">
-                                        {formatIDR(r.total)}
-                                    </td>
-                                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{r.penjamin}</td>
-                                    <td className="px-4 py-2 text-gray-700 dark:text-gray-300">{r.perusahaan}</td>
-                                </tr>
-                            ))
+                            (() => {
+                                let lastKunjungan = '';
+                                let groupCount = 0;
+                                return paginatedRows.map((r, idx) => {
+                                    const isFirstInGroup = r.noKunjungan !== lastKunjungan;
+                                    if (isFirstInGroup) {
+                                        lastKunjungan = r.noKunjungan;
+                                        groupCount++;
+                                    }
+
+                                    const baseObat = Math.round(r.biayaObatTotal * 100 / 111);
+                                    const ppn = r.biayaObatTotal - baseObat;
+
+                                    return (
+                                        <tr key={`${r.no}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition-colors">
+                                            <td className="px-2 py-2 text-center border-x border-gray-100 dark:border-neutral-800">{isFirstInGroup ? groupCount : ''}</td>
+                                            <td className="px-2 py-2 border-x border-gray-100 dark:border-neutral-800 whitespace-nowrap">{isFirstInGroup ? formatDate(r.tglKunjungan) : ''}</td>
+                                            <td className="px-2 py-2 border-x border-gray-100 dark:border-neutral-800">{isFirstInGroup ? r.namaPasien : ''}</td>
+                                            <td className="px-2 py-2 border-x border-gray-100 dark:border-neutral-800">{isFirstInGroup ? r.noMR : ''}</td>
+                                            <td className="px-2 py-2 border-x border-gray-100 dark:border-neutral-800">{isFirstInGroup ? r.noTagihan : ''}</td>
+                                            <td className="px-2 py-2 border-x border-gray-100 dark:border-neutral-800">{isFirstInGroup ? r.perusahaan : ''}</td>
+                                            <td className="px-2 py-2 border-x border-gray-100 dark:border-neutral-800">{r.namaObat || '-'}</td>
+                                            <td className="px-2 py-2 text-center border-x border-gray-100 dark:border-neutral-800">{r.qty}</td>
+                                            <td className="px-2 py-2 text-right border-x border-gray-100 dark:border-neutral-800">{formatIDR(r.harga)}</td>
+                                            <td className="px-2 py-2 text-right border-x border-gray-100 dark:border-neutral-800">{formatIDR(r.jumlahHargaObat)}</td>
+                                            <td className="px-2 py-2 text-right border-x border-gray-100 dark:border-neutral-800 font-bold">{isFirstInGroup ? formatIDR(r.biayaDokter) : ''}</td>
+                                            <td className="px-2 py-2 text-right border-x border-gray-100 dark:border-neutral-800">{isFirstInGroup ? formatIDR(baseObat) : ''}</td>
+                                            <td className="px-2 py-2 text-right border-x border-gray-100 dark:border-neutral-800">-</td>
+                                            <td className="px-2 py-2 text-right border-x border-gray-100 dark:border-neutral-800">-</td>
+                                            <td className="px-2 py-2 text-right border-x border-gray-100 dark:border-neutral-800">{isFirstInGroup ? formatIDR(ppn) : ''}</td>
+                                            <td className="px-2 py-2 text-right border-x border-gray-100 dark:border-neutral-800">-</td>
+                                            <td className="px-2 py-2 text-right border-x border-gray-100 dark:border-neutral-800">-</td>
+                                            <td className="px-2 py-2 text-right border-x border-gray-100 dark:border-neutral-800 font-bold">{isFirstInGroup ? formatIDR(r.biayaObatTotal) : ''}</td>
+                                            <td className="px-2 py-2 text-right border-x border-gray-100 dark:border-neutral-800 font-bold">{isFirstInGroup ? formatIDR(r.jumlahTotal) : ''}</td>
+                                        </tr>
+                                    );
+                                });
+                            })()
                         )}
                     </tbody>
                 </table>
