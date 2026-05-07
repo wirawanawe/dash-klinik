@@ -50,10 +50,12 @@ export default function LaporanTransaksiPerusahaanPage() {
     const [loading, setLoading] = useState(true);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [searchPasien, setSearchPasien] = useState('');
+    const [searchPerusahaan, setSearchPerusahaan] = useState('');
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = async () => {
         setLoading(true);
         try {
             const selectedUserId = getSelectedDashboardUserId();
@@ -64,6 +66,8 @@ export default function LaporanTransaksiPerusahaanPage() {
             const params = new URLSearchParams();
             if (startDate) params.set('startDate', startDate);
             if (endDate) params.set('endDate', endDate);
+            if (searchPasien) params.set('pasien', searchPasien);
+            if (searchPerusahaan) params.set('perusahaan', searchPerusahaan);
 
             const res = await fetch(
                 `/api/proxy/dashboard/laporan/transaksi-perusahaan?${params.toString()}`,
@@ -80,11 +84,11 @@ export default function LaporanTransaksiPerusahaanPage() {
         } finally {
             setLoading(false);
         }
-    }, [startDate, endDate]);
+    };
 
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+    }, [startDate, endDate]);
 
     const totalHalaman = useMemo(
         () => (rows.length ? Math.ceil(rows.length / pageSize) : 1),
@@ -219,7 +223,7 @@ export default function LaporanTransaksiPerusahaanPage() {
             </div>
 
             <div className="bg-white dark:bg-neutral-900 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-neutral-800">
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-5">
                     <div>
                         <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                             Tanggal Mulai
@@ -242,14 +246,38 @@ export default function LaporanTransaksiPerusahaanPage() {
                             className="w-full rounded-lg border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            Nama Pasien
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="Cari pasien..."
+                            value={searchPasien}
+                            onChange={(e) => setSearchPasien(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                            Perusahaan
+                        </label>
+                        <input
+                            type="text"
+                            placeholder="Cari perusahaan..."
+                            value={searchPerusahaan}
+                            onChange={(e) => setSearchPerusahaan(e.target.value)}
+                            className="w-full rounded-lg border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
                     <div className="flex items-end">
                         <button
                             type="button"
                             onClick={fetchData}
-                            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-medium transition-colors"
+                            className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm font-medium transition-colors h-[38px]"
                         >
                             <Search className="h-4 w-4" />
-                            Tampilkan
+                            Filter
                         </button>
                     </div>
                 </div>
