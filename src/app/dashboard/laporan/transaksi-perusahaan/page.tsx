@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Building2, Search, Download } from 'lucide-react';
 import { getApiHeaders } from '@/lib/api';
 import { getSelectedDashboardUserId } from '@/lib/tenant';
-import ExcelJS from 'exceljs';
+import * as ExcelJS from 'exceljs';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
