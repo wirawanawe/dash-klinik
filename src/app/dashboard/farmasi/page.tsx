@@ -135,6 +135,7 @@ export default function FarmasiPage() {
                 'Satuan': item.SmallUnit || '-',
                 'Stok': item.Stok || '-',
                 'HNA': item.HNA || '-',
+                'Harga Jual': item.HargaJual || '-',
                 'Status': item.Berlaku ? 'Active' : 'Inactive'
             }));
 
@@ -162,6 +163,11 @@ export default function FarmasiPage() {
             header: 'HNA',
             accessorKey: 'HNA',
             cell: (item: any) => item.HNA ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(item.HNA) : '-'
+        },
+        {
+            header: 'Harga Jual',
+            accessorKey: 'HargaJual',
+            cell: (item: any) => item.HargaJual ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(item.HargaJual) : '-'
         },
         {
             header: 'Status',
