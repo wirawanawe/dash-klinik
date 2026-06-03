@@ -470,7 +470,7 @@ export default function ResepDashboardPage() {
                                                     <YAxis tick={{ fontSize: 11 }} tickMargin={8} tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}Jt` : `${(v / 1e3).toFixed(0)}Rb`} />
                                                     <Tooltip
                                                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                                        formatter={(value: number | undefined) => [formatCurrency(value ?? 0), 'Nilai']}
+                                                        formatter={(value: any) => [formatCurrency(value ?? 0), 'Nilai']}
                                                         labelFormatter={(label) => label}
                                                     />
                                                     <Bar dataKey="nilai" fill="#10b981" radius={[4, 4, 0, 0]} name="Nilai Pembelian" />

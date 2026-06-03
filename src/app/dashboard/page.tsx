@@ -279,7 +279,7 @@ export default function DashboardPage() {
                                             <YAxis tick={{ fontSize: 11 }} tickMargin={8} allowDecimals={false} />
                                             <Tooltip
                                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                                formatter={(value: number | undefined) => [value ?? 0, 'Kunjungan']}
+                                                formatter={(value: any) => [value ?? 0, 'Kunjungan']}
                                                 labelFormatter={(label) => label}
                                             />
                                             <Bar dataKey="jumlah" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Kunjungan" />
@@ -342,7 +342,7 @@ export default function DashboardPage() {
                                                     <YAxis tick={{ fontSize: 11 }} tickMargin={8} tickFormatter={(v) => v >= 1e6 ? `${(v / 1e6).toFixed(0)}Jt` : `${(v / 1e3).toFixed(0)}Rb`} />
                                                     <Tooltip
                                                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                                        formatter={(value: number | undefined) => [new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value ?? 0), 'Nilai']}
+                                                        formatter={(value: any) => [new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(value ?? 0), 'Nilai']}
                                                         labelFormatter={(label) => label}
                                                     />
                                                     <Bar dataKey="nilai" fill="#10b981" radius={[4, 4, 0, 0]} name="Nilai Pembelian" />

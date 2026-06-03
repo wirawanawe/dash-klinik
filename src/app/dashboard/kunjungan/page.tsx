@@ -644,7 +644,7 @@ export default function KunjunganPage() {
                                             <YAxis tick={{ fontSize: 11 }} tickMargin={8} allowDecimals={false} />
                                             <Tooltip
                                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                                formatter={(value: number | undefined) => [value ?? 0, 'Kunjungan']}
+                                                formatter={(value: any) => [value ?? 0, 'Kunjungan']}
                                                 labelFormatter={(label) => label}
                                             />
                                             <Bar dataKey="jumlah" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Kunjungan" />
