@@ -44,6 +44,59 @@ function DashboardCard({ title, value, subtext, icon: Icon }: { title: string; v
     );
 }
 
+function PaginatedMedicineList({ data }: { data: any[] }) {
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+
+    const totalPages = Math.ceil(data.length / limit) || 1;
+    const startIndex = (page - 1) * limit;
+    const currentData = data.slice(startIndex, startIndex + limit);
+
+    return (
+        <div className="flex flex-col h-full space-y-4">
+            <div className="flex justify-between items-center mb-2">
+                <select
+                    value={limit}
+                    onChange={(e) => {
+                        setLimit(Number(e.target.value));
+                        setPage(1);
+                    }}
+                    className="h-8 rounded-md border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 text-xs"
+                >
+                    <option value={10}>10 Baris</option>
+                    <option value={20}>20 Baris</option>
+                    <option value={50}>50 Baris</option>
+                </select>
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-2 py-1 border border-gray-200 dark:border-neutral-700 hover:bg-gray-50 dark:hover:bg-neutral-800 rounded disabled:opacity-50">Prev</button>
+                    <span>{page} / {totalPages}</span>
+                    <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)} className="px-2 py-1 border border-gray-200 dark:border-neutral-700 hover:bg-gray-50 dark:hover:bg-neutral-800 rounded disabled:opacity-50">Next</button>
+                </div>
+            </div>
+            
+            <div className="space-y-4 flex-1">
+                {currentData.length === 0 ? (
+                    <p className="text-sm text-gray-400">Tidak ada data</p>
+                ) : (
+                    currentData.map((m: any, i: number) => (
+                        <div key={i} className="flex flex-col gap-1.5">
+                            <div className="flex items-start justify-between">
+                                <span className="text-sm font-medium text-gray-900 dark:text-white pr-2 line-clamp-2 leading-tight">
+                                    {startIndex + i + 1}. {m.ItemDesc ?? '-'}
+                                </span>
+                                <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{m.TotalQty}</span>
+                            </div>
+                            <div className="w-full bg-gray-100 dark:bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                                <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${Math.min((m.TotalQty / (data[0]?.TotalQty || 1)) * 100, 100)}%` }}></div>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function KunjunganPage() {
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -675,65 +728,17 @@ export default function KunjunganPage() {
                             <div className="grid gap-4 xl:grid-cols-3">
                                 <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
                                     <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">Hari Ini</h3>
-                                    <div className="space-y-4">
-                                        {topMedicines.hariIni?.length === 0 ? (
-                                            <p className="text-sm text-gray-400">Tidak ada data hari ini</p>
-                                        ) : (
-                                            topMedicines.hariIni?.slice(0, 10).map((m: any, i: number) => (
-                                                <div key={i} className="flex flex-col gap-1.5">
-                                                    <div className="flex items-start justify-between">
-                                                        <span className="text-sm font-medium text-gray-900 dark:text-white pr-2 line-clamp-2 leading-tight">{m.ItemDesc ?? '-'}</span>
-                                                        <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{m.TotalQty}</span>
-                                                    </div>
-                                                    <div className="w-full bg-gray-100 dark:bg-neutral-800 rounded-full h-1.5 overflow-hidden">
-                                                        <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${Math.min((m.TotalQty / (topMedicines.hariIni[0]?.TotalQty || 1)) * 100, 100)}%` }}></div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
+                                    <PaginatedMedicineList data={topMedicines.hariIni || []} />
                                 </div>
                                 
                                 <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
                                     <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">Minggu Ini</h3>
-                                    <div className="space-y-4">
-                                        {topMedicines.mingguIni?.length === 0 ? (
-                                            <p className="text-sm text-gray-400">Tidak ada data minggu ini</p>
-                                        ) : (
-                                            topMedicines.mingguIni?.slice(0, 10).map((m: any, i: number) => (
-                                                <div key={i} className="flex flex-col gap-1.5">
-                                                    <div className="flex items-start justify-between">
-                                                        <span className="text-sm font-medium text-gray-900 dark:text-white pr-2 line-clamp-2 leading-tight">{m.ItemDesc ?? '-'}</span>
-                                                        <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{m.TotalQty}</span>
-                                                    </div>
-                                                    <div className="w-full bg-gray-100 dark:bg-neutral-800 rounded-full h-1.5 overflow-hidden">
-                                                        <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${Math.min((m.TotalQty / (topMedicines.mingguIni[0]?.TotalQty || 1)) * 100, 100)}%` }}></div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
+                                    <PaginatedMedicineList data={topMedicines.mingguIni || []} />
                                 </div>
 
                                 <div className="bg-white dark:bg-neutral-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
                                     <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">Bulan Ini</h3>
-                                    <div className="space-y-4">
-                                        {topMedicines.bulanIni?.length === 0 ? (
-                                            <p className="text-sm text-gray-400">Tidak ada data bulan ini</p>
-                                        ) : (
-                                            topMedicines.bulanIni?.slice(0, 10).map((m: any, i: number) => (
-                                                <div key={i} className="flex flex-col gap-1.5">
-                                                    <div className="flex items-start justify-between">
-                                                        <span className="text-sm font-medium text-gray-900 dark:text-white pr-2 line-clamp-2 leading-tight">{m.ItemDesc ?? '-'}</span>
-                                                        <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{m.TotalQty}</span>
-                                                    </div>
-                                                    <div className="w-full bg-gray-100 dark:bg-neutral-800 rounded-full h-1.5 overflow-hidden">
-                                                        <div className="bg-indigo-500 h-1.5 rounded-full" style={{ width: `${Math.min((m.TotalQty / (topMedicines.bulanIni[0]?.TotalQty || 1)) * 100, 100)}%` }}></div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
+                                    <PaginatedMedicineList data={topMedicines.bulanIni || []} />
                                 </div>
                             </div>
                         )}
