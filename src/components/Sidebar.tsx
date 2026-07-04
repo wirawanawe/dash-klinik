@@ -34,6 +34,7 @@ const menuItems = [
             { label: 'Laporan Penjualan Obat', href: '/dashboard/laporan/penjualan-obat' },
             { label: 'Laporan Pembelian Obat', href: '/dashboard/laporan/pembelian-obat' },
             { label: 'Laporan Transaksi Perusahaan', href: '/dashboard/laporan/transaksi-perusahaan' },
+            { label: 'Laporan Resep Obat', href: '/dashboard/laporan/resep-obat' },
         ],
     },
 ];

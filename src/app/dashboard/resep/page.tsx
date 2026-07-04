@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Loader2, CalendarDays, TrendingUp, Eye, X, Notebook, AlertCircle, Search, ShoppingCart, Pill } from 'lucide-react';
+import { Loader2, CalendarDays, TrendingUp, Eye, X, Notebook, AlertCircle, Search, ShoppingCart, Pill, ChevronLeft, ChevronRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getApiHeaders } from '@/lib/api';
 import { getSelectedDashboardUserId, subscribeToTenantChange } from '@/lib/tenant';
@@ -24,6 +24,85 @@ function DashboardCard({ title, value, subtext, icon: Icon }: { title: string; v
 const MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
 type TopMedicineItem = { ItemDesc: string; TotalQty: number; TotalNominal: number };
+
+const MedicineTable = ({ title, data }: { title: string, data: TopMedicineItem[] }) => {
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+
+    const totalPages = Math.ceil(data.length / limit) || 1;
+    const startIndex = (page - 1) * limit;
+    const currentData = data.slice(startIndex, startIndex + limit);
+
+    return (
+        <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm border border-gray-100 dark:border-neutral-800 overflow-hidden flex flex-col h-full">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50 flex items-center justify-between">
+                <h3 className="font-medium text-gray-900 dark:text-white">{title}</h3>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={limit}
+                        onChange={(e) => {
+                            setLimit(Number(e.target.value));
+                            setPage(1);
+                        }}
+                        className="h-8 rounded-md border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1 text-xs font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value={5}>5 Baris</option>
+                        <option value={10}>10 Baris</option>
+                        <option value={20}>20 Baris</option>
+                        <option value={50}>50 Baris</option>
+                    </select>
+                </div>
+            </div>
+            <div className="overflow-x-auto flex-1">
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 dark:bg-neutral-800 text-gray-500 dark:text-gray-400 font-medium sticky top-0">
+                        <tr>
+                            <th className="px-4 py-3">No</th>
+                            <th className="px-4 py-3">Nama Obat</th>
+                            <th className="px-4 py-3 text-right">Qty</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-neutral-700">
+                        {currentData.length === 0 ? (
+                            <tr><td colSpan={3} className="px-4 py-8 text-center text-gray-500">Tidak ada data</td></tr>
+                        ) : (
+                            currentData.map((row, index) => (
+                                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-neutral-800/50">
+                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{startIndex + index + 1}</td>
+                                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{row.ItemDesc ?? '-'}</td>
+                                    <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white">{row.TotalQty ?? 0}</td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+            {data.length > 0 && (
+                <div className="px-4 py-3 border-t border-gray-200 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mt-auto">
+                    <div>
+                        Menampilkan {startIndex + 1} - {Math.min(startIndex + limit, data.length)} dari {data.length}
+                    </div>
+                    <div className="flex gap-1">
+                        <button
+                            disabled={page === 1}
+                            onClick={() => setPage(p => p - 1)}
+                            className="p-1 rounded border border-gray-200 dark:border-neutral-700 disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                            disabled={page >= totalPages}
+                            onClick={() => setPage(p => p + 1)}
+                            className="p-1 rounded border border-gray-200 dark:border-neutral-700 disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-colors"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 export default function ResepDashboardPage() {
     const now = new Date();
@@ -256,37 +335,7 @@ export default function ResepDashboardPage() {
     const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const currentMonthName = MONTHS[selectedMonth - 1];
 
-    const MedicineTable = ({ title, data }: { title: string, data: TopMedicineItem[] }) => (
-        <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-sm border border-gray-100 dark:border-neutral-800 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-neutral-700 bg-gray-50/50 dark:bg-neutral-800/50">
-                <h3 className="font-medium text-gray-900 dark:text-white">{title}</h3>
-            </div>
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 dark:bg-neutral-800 text-gray-500 dark:text-gray-400 font-medium">
-                        <tr>
-                            <th className="px-4 py-3">No</th>
-                            <th className="px-4 py-3">Nama Obat</th>
-                            <th className="px-4 py-3 text-right">Qty</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-neutral-700">
-                        {data.length === 0 ? (
-                            <tr><td colSpan={3} className="px-4 py-8 text-center text-gray-500">Tidak ada data</td></tr>
-                        ) : (
-                            data.map((row, index) => (
-                                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-neutral-800/50">
-                                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{index + 1}</td>
-                                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{row.ItemDesc ?? '-'}</td>
-                                    <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white">{row.TotalQty ?? 0}</td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
+
 
     const resepColumns = [
         { header: 'No Invoice', accessorKey: 'NoInvoice', className: 'font-medium' },

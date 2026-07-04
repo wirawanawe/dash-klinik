@@ -50,6 +50,8 @@ export default function KunjunganPage() {
     const [search, setSearch] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [appliedStartDate, setAppliedStartDate] = useState('');
+    const [appliedEndDate, setAppliedEndDate] = useState('');
     const [pagination, setPagination] = useState({
         page: 1,
         limit: 10,
@@ -311,8 +313,8 @@ export default function KunjunganPage() {
     }, [fetchKunjunganSummary, fetchGraph, fetchGraphStatus, fetchTopMedicines]);
 
     useEffect(() => {
-        fetchData(1, debouncedSearch, startDate, endDate, pagination.limit, sortColumn, sortDirection);
-    }, [debouncedSearch, startDate, endDate, fetchData, pagination.limit, sortColumn, sortDirection]);
+        fetchData(1, debouncedSearch, appliedStartDate, appliedEndDate, pagination.limit, sortColumn, sortDirection);
+    }, [debouncedSearch, appliedStartDate, appliedEndDate, fetchData, pagination.limit, sortColumn, sortDirection]);
     // Note: pagination.limit in dependency array might trigger double fetch on mount if not careful, 
     // but needed if limit changes from other source. 
     // Actually limit change is handled by onLimitChange which calls fetchData explicitly. 
@@ -337,8 +339,8 @@ export default function KunjunganPage() {
                 }
             }
 
-            if (startDate) queryParams.append('startDate', startDate);
-            if (endDate) queryParams.append('endDate', endDate);
+            if (appliedStartDate) queryParams.append('startDate', appliedStartDate);
+            if (appliedEndDate) queryParams.append('endDate', appliedEndDate);
             if (sortColumn) queryParams.append('sortBy', sortColumn);
             if (sortDirection) queryParams.append('sortOrder', sortDirection);
 
@@ -763,6 +765,16 @@ export default function KunjunganPage() {
                         onChange={(e) => setEndDate(e.target.value)}
                         className="h-10 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-800 dark:bg-neutral-900"
                     />
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setAppliedStartDate(startDate);
+                            setAppliedEndDate(endDate);
+                        }}
+                        className="h-10 px-4 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
+                    >
+                        Cari
+                    </button>
                 </div>
             </div>
 
