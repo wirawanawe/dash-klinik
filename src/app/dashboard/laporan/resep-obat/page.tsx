@@ -14,6 +14,7 @@ type Row = {
     namaDokter: string;
     noResep: string;
     namaObat: string;
+    namaPabrik: string;
     qty: number;
 };
 
@@ -91,6 +92,7 @@ export default function LaporanResepObatPage() {
             { header: 'NAMA DOKTER', key: 'namaDokter', width: 25 },
             { header: 'NO. RESEP', key: 'noResep', width: 20 },
             { header: 'NAMA OBAT', key: 'namaObat', width: 35 },
+            { header: 'NAMA PABRIK', key: 'namaPabrik', width: 25 },
             { header: 'QTY', key: 'qty', width: 10 },
         ];
 
@@ -111,6 +113,7 @@ export default function LaporanResepObatPage() {
                 namaDokter: r.namaDokter,
                 noResep: r.noResep,
                 namaObat: r.namaObat,
+                namaPabrik: r.namaPabrik,
                 qty: r.qty,
             });
 
@@ -126,7 +129,7 @@ export default function LaporanResepObatPage() {
 
         worksheet.autoFilter = {
             from: 'A1',
-            to: `F${rows.length + 1}`,
+            to: `G${rows.length + 1}`,
         };
 
         const buffer = await workbook.xlsx.writeBuffer();
@@ -234,13 +237,14 @@ export default function LaporanResepObatPage() {
                             <th className="px-4 py-3 border border-gray-200 dark:border-neutral-700">NAMA DOKTER</th>
                             <th className="px-4 py-3 border border-gray-200 dark:border-neutral-700">NO. RESEP</th>
                             <th className="px-4 py-3 border border-gray-200 dark:border-neutral-700">NAMA OBAT</th>
+                            <th className="px-4 py-3 border border-gray-200 dark:border-neutral-700">NAMA PABRIK</th>
                             <th className="px-4 py-3 border border-gray-200 dark:border-neutral-700 text-center w-24">QTY</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-neutral-800">
                         {loading ? (
                             <tr>
-                                <td colSpan={6} className="px-4 py-16 text-center text-gray-500 dark:text-gray-400">
+                                <td colSpan={7} className="px-4 py-16 text-center text-gray-500 dark:text-gray-400">
                                     <div className="inline-flex items-center justify-center gap-2 w-full">
                                         <Loader2 className="h-5 w-5 animate-spin" /> Memuat data...
                                     </div>
@@ -248,7 +252,7 @@ export default function LaporanResepObatPage() {
                             </tr>
                         ) : rows.length === 0 ? (
                             <tr>
-                                <td colSpan={6} className="px-4 py-16 text-center text-gray-500 dark:text-gray-400">
+                                <td colSpan={7} className="px-4 py-16 text-center text-gray-500 dark:text-gray-400">
                                     Tidak ada data untuk rentang tanggal ini.
                                 </td>
                             </tr>
@@ -260,6 +264,7 @@ export default function LaporanResepObatPage() {
                                     <td className="px-4 py-3 border border-gray-100 dark:border-neutral-800">{r.namaDokter}</td>
                                     <td className="px-4 py-3 border border-gray-100 dark:border-neutral-800">{r.noResep}</td>
                                     <td className="px-4 py-3 border border-gray-100 dark:border-neutral-800">{r.namaObat}</td>
+                                    <td className="px-4 py-3 border border-gray-100 dark:border-neutral-800">{r.namaPabrik}</td>
                                     <td className="px-4 py-3 text-center border border-gray-100 dark:border-neutral-800 font-medium">{r.qty}</td>
                                 </tr>
                             ))
